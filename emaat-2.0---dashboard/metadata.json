@@ -1,0 +1,8 @@
+{
+  "name": "eMaat 2.0 - Dashboard",
+  "description": "A dashboard for General Practitioner assistants to monitor participant progress through a 10-domain preventive health program. It provides insights into participant data through graphs and diagrams and allows for video consultations.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "short_name": "eMaat",
+  "name": "eMaat 2.0",
+  "description": "Your personal eBuddy for a healthier lifestyle. Log your positive life steps, watch your avatar thrive, and receive educational nudges to support your journey to a healthier, happier you.",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4F46E5",
+  "background_color": "#F3F4F6"
+}
