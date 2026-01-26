@@ -4,7 +4,7 @@ import { AppState, Action, Memory, Language, LifeStep, Badge, ProcessedStepPaylo
 import { POINTS_PER_LEVEL, BADGES, ACTIVITIES } from './constants';
 import { setAsset, getAsset } from './db';
 import { formatGoalText, formatMemoryDetailsText, activityIdToGoalKeyMap, getTodayDateString, generateCommunityGoal } from './utils';
-import { BedIcon, DumbbellIcon, UtensilsIcon, SmokingIcon, UsersIcon, LeafIcon } from './components/Icons';
+import { BedIcon, DumbbellIcon, UtensilsIcon, SmokingIcon, UsersIcon, LeafIcon, HeartIcon } from './components/Icons';
 
 const getEarnedBadges = (activityPoints: Record<string, number>): Badge[] => {
     const earned: Badge[] = [];
@@ -338,6 +338,7 @@ const challengeIdToActivityMap: Record<ChallengeId, Partial<Activity>> = {
     stopRokenChallenge: { id: 'smoke', icon: SmokingIcon, color: 'text-slate-500', pillar: 'stress_reduction' },
     socialChallenge: { id: 'social', icon: UsersIcon, color: 'text-amber-500', pillar: 'social' },
     stressChallenge: { id: 'relax', icon: LeafIcon, color: 'text-teal-500', pillar: 'stress_reduction' },
+    hartfalenChallenge: { id: 'exercise', icon: HeartIcon, color: 'text-rose-500', pillar: 'exercise' },
 };
 
 const mapChallengeActivityToActivity = (challengeActivity: ChallengeActivity): Activity | null => {
@@ -430,7 +431,8 @@ const performChallengeStepCalculations = async (
     subtitle?: string
 ): Promise<ProcessedChallengeStepPayload> => {
 
-    if (!state.currentAvatar) throw new Error("Current avatar is null during calculation");
+    // Use current avatar or the new avatar if current is not set
+    const currentAvatar = state.currentAvatar || avatarAfter;
 
     const todayStr = getTodayDateString();
     let newStreak = state.currentStreak;
@@ -604,9 +606,9 @@ export const processCompletedChallengeActivity = async (
 
         const nudge = t('challenge.genericNudge');
 
-        if (!state.currentAvatar) throw new Error("Avatar not available");
+        // Use current avatar or a default one if not set
+        const avatarAfter = state.currentAvatar || { skinTone: 'light', gender: 'neutral', hairColor: 'brown', hairStyle: 'short', shirtColor: 'blue' };
         
-        const avatarAfter = state.currentAvatar; // NO AVATAR UPDATE
         const audioData = null; // NO AUDIO
 
         const payload = await performChallengeStepCalculations(state, activity, challengeActivity, pointsToAdd, newMeasurements, nudge, avatarAfter, audioData, overrideTitle, subtitle);
@@ -617,7 +619,7 @@ export const processCompletedChallengeActivity = async (
         console.error("CRITICAL ERROR during challenge step processing:", error);
         // Dispatch only the status update on error, so the task is marked as done.
         dispatch({ type: 'UPDATE_CHALLENGE_ACTIVITY', payload: challengeActivity });
-        // rethrow to be caught by caller in App.tsx
-        throw error;
+        // Return undefined to signal error but don't throw - let the caller handle navigation
+        return undefined;
     }
 };

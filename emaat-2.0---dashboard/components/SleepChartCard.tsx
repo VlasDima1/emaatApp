@@ -8,17 +8,21 @@ interface SleepChartCardProps {
 }
 
 const SleepChartCard: React.FC<SleepChartCardProps> = ({ data }) => {
-  const chartData = data.map(d => ({ name: d.date.substring(5).replace('-', '/'), value: d.value }));
+  // Filter out days with no sleep data recorded
+  const dataWithValues = data.filter(d => d.value > 0);
+  const chartData = data.map(d => ({ name: d.date.substring(5).replace('-', '/'), value: d.value || 0 }));
   const chartColor = '#6366f1'; // Indigo for sleep
 
-  // Calculate statistics
-  const sleepHours = data.map(d => d.value);
+  // Calculate statistics only from days with data
+  const sleepHours = dataWithValues.map(d => d.value);
   const totalHours = sleepHours.reduce((acc, hours) => acc + hours, 0);
-  const averageHours = totalHours / sleepHours.length;
+  const averageHours = sleepHours.length > 0 ? totalHours / sleepHours.length : 0;
   
   const mean = averageHours;
   const squaredDifferences = sleepHours.map(hours => Math.pow(hours - mean, 2));
-  const avgSquaredDifference = squaredDifferences.reduce((acc, val) => acc + val, 0) / squaredDifferences.length;
+  const avgSquaredDifference = sleepHours.length > 0 
+    ? squaredDifferences.reduce((acc, val) => acc + val, 0) / sleepHours.length 
+    : 0;
   const stdDev = Math.sqrt(avgSquaredDifference);
 
   const getConsistencyText = (stdDev: number): string => {
@@ -51,11 +55,15 @@ const SleepChartCard: React.FC<SleepChartCardProps> = ({ data }) => {
       <div className="grid grid-cols-2 gap-4 text-center mb-4 border-t border-b border-gray-100 py-3">
         <div>
             <p className="text-sm text-gray-500">Gemiddeld</p>
-            <p className="text-xl font-bold text-indigo-600">{averageHours.toFixed(1)}u</p>
+            <p className="text-xl font-bold text-indigo-600">
+              {sleepHours.length > 0 ? `${averageHours.toFixed(1)}u` : 'Geen data'}
+            </p>
         </div>
         <div>
             <p className="text-sm text-gray-500">Consistentie</p>
-            <p className={`text-xl font-bold ${getConsistencyColor(stdDev)}`}>{consistencyText}</p>
+            <p className={`text-xl font-bold ${sleepHours.length > 0 ? getConsistencyColor(stdDev) : 'text-gray-400'}`}>
+              {sleepHours.length > 0 ? consistencyText : 'Geen data'}
+            </p>
         </div>
       </div>
 

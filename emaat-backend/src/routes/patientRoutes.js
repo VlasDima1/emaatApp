@@ -58,6 +58,8 @@ router.post('/challenges/:id/complete-day', [
     body('dayNumber').isInt({ min: 1 }).withMessage('Day number must be a positive integer'),
     validate
 ], challengesController.completeDailyActivity);
+// Alias for backward compatibility with app's updateChallengeProgress
+router.post('/challenges/:id/progress', challengesController.updateChallengeProgress);
 router.post('/challenges/:id/cancel', challengesController.cancelChallenge);
 
 // ============================================

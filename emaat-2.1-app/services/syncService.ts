@@ -4,7 +4,8 @@
  */
 
 import { apiService } from './apiService';
-import { Measurement, LifeStep, Goals, ChallengeId, SurveyResult, JournalEntry, Reminder } from '../types';
+import { Measurement, LifeStep, Goals, ChallengeId, SurveyResult, JournalEntry, Reminder, Survey } from '../types';
+import { SURVEYS } from '../surveys';
 
 interface SyncResult {
     success: boolean;
@@ -190,18 +191,56 @@ class SyncService {
     /**
      * Sync a survey result to the backend
      */
-    async syncSurveyResult(survey: any): Promise<boolean> {
+    async syncSurveyResult(survey: SurveyResult, t?: (key: string) => string): Promise<boolean> {
         if (!this.isReadyToSync()) {
             console.log('Sync skipped: Not authenticated');
             return false;
         }
 
         try {
+            // Find the survey definition to get question and answer details
+            const surveyDef = SURVEYS.find(s => s.id === survey.surveyId);
+            
+            // Transform answers to include question text and answer labels
+            let enrichedAnswers: Array<{ questionId: string; questionText: string; answerLabel: string; value: number }> = [];
+            
+            if (surveyDef && t) {
+                enrichedAnswers = Object.entries(survey.answers).map(([questionId, answerTextKey]) => {
+                    const question = surveyDef.questions.find(q => q.id === questionId);
+                    const questionText = question ? t(question.textKey) : questionId;
+                    
+                    // Find the answer option to get the value and label
+                    let answerLabel = answerTextKey;
+                    let value = 0;
+                    
+                    if (question && surveyDef.answerOptions[question.answerOptionsKey]) {
+                        const answerOption = surveyDef.answerOptions[question.answerOptionsKey].find(
+                            (opt: any) => opt.textKey === answerTextKey
+                        );
+                        if (answerOption) {
+                            answerLabel = t(answerOption.textKey);
+                            value = answerOption.value;
+                        }
+                    }
+                    
+                    return { questionId, questionText, answerLabel, value };
+                });
+            } else {
+                // Fallback: just use raw answer data
+                enrichedAnswers = Object.entries(survey.answers).map(([questionId, answerTextKey]) => ({
+                    questionId,
+                    questionText: questionId,
+                    answerLabel: String(answerTextKey),
+                    value: 0
+                }));
+            }
+
             const result = await apiService.submitSurvey({
                 surveyId: survey.surveyId,
-                answers: survey.answers,
+                answers: enrichedAnswers,
                 scores: survey.scores,
                 interpretation: survey.interpretation,
+                totalScore: survey.scores?.score ?? 0, // Extract total score from scores object
                 timestamp: survey.timestamp instanceof Date 
                     ? survey.timestamp.toISOString() 
                     : survey.timestamp

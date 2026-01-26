@@ -13,6 +13,7 @@ import { generateVoedingChallenge } from './challenges/voedingChallenge';
 import { generateStopRokenChallenge } from './challenges/stopRokenChallenge';
 import { generateSocialChallenge } from './challenges/socialChallenge';
 import { generateStressChallenge } from './challenges/stressChallenge';
+import { generateHartfalenChallenge } from './challenges/hartfalenChallenge';
 import { useLanguage } from './contexts/LanguageContext';
 import { getTodayDateString, generateRemindersForGoal, generateCommunityGoal } from './utils';
 import { generateAvatar } from './services/geminiService';
@@ -20,7 +21,7 @@ import { syncService } from './services/syncService';
 import { apiService } from './services/apiService';
 import ConfirmationModal from './components/ConfirmationModal';
 import { setAsset } from './db';
-import { StarIcon, BedIcon, DumbbellIcon, UtensilsIcon, SmokingIcon, UsersIcon, LeafIcon } from './components/Icons';
+import { StarIcon, BedIcon, DumbbellIcon, UtensilsIcon, SmokingIcon, UsersIcon, LeafIcon, HeartIcon } from './components/Icons';
 
 // Screens
 import LanguageSelectScreen from './components/screens/LanguageSelectScreen';
@@ -192,19 +193,21 @@ function appReducer(state: AppState, action: Action): AppState {
             let challengeActivities: ChallengeActivity[] = [];
             const startDate = new Date();
             startDate.setHours(0, 0, 0, 0);
+            const { challengeId: initChallengeId, dbId: initDbId } = action.payload;
             
-            switch(action.payload) {
+            switch(initChallengeId) {
                 case 'sleepChallenge': challengeActivities = generateSleepChallenge(state.goals.regularSleep || { bedtime: '22:30', wakeTime: '06:30' } as any, startDate); break;
                 case 'beweegChallenge': challengeActivities = generateBeweegChallenge(startDate); break;
                 case 'voedingChallenge': challengeActivities = generateVoedingChallenge(startDate); break;
                 case 'stopRokenChallenge': challengeActivities = generateStopRokenChallenge(startDate); break;
                 case 'socialChallenge': challengeActivities = generateSocialChallenge(startDate); break;
                 case 'stressChallenge': challengeActivities = generateStressChallenge(startDate); break;
+                case 'hartfalenChallenge': challengeActivities = generateHartfalenChallenge(startDate); break;
             }
             return {
                 ...state,
-                challenge: { id: action.payload, activities: challengeActivities },
-                communityGoal: generateCommunityGoal(action.payload),
+                challenge: { id: initChallengeId, activities: challengeActivities, dbId: initDbId },
+                communityGoal: generateCommunityGoal(initChallengeId),
                 view: { name: 'timeline' }
             };
         case 'ADD_MEASUREMENT':
@@ -418,47 +421,55 @@ const AppContent = () => {
                 }
                 
                 // Transform and load active challenge from backend
-                if (challengesRes?.data && Array.isArray(challengesRes.data) && challengesRes.data.length > 0) {
-                    // Get the first active challenge (there should only be one)
-                    const activeChallenge = challengesRes.data[0];
-                    if (activeChallenge) {
-                        const challengeId = activeChallenge.challengeId || activeChallenge.type;
-                        console.log('Found active challenge from backend:', challengeId);
-                        
-                        // Generate challenge activities for the frontend
-                        const startDate = new Date(activeChallenge.startDate);
-                        startDate.setHours(0, 0, 0, 0);
-                        
-                        let challengeActivities: ChallengeActivity[] = [];
-                        switch(challengeId) {
-                            case 'sleepChallenge': 
-                                challengeActivities = generateSleepChallenge(state.goals.regularSleep || { bedtime: '22:30', wakeTime: '06:30' } as any, startDate); 
-                                break;
-                            case 'beweegChallenge': 
-                                challengeActivities = generateBeweegChallenge(startDate); 
-                                break;
-                            case 'voedingChallenge': 
-                                challengeActivities = generateVoedingChallenge(startDate); 
-                                break;
-                            case 'stopRokenChallenge': 
-                                challengeActivities = generateStopRokenChallenge(startDate); 
-                                break;
-                            case 'socialChallenge': 
-                                challengeActivities = generateSocialChallenge(startDate); 
-                                break;
-                            case 'stressChallenge': 
-                                challengeActivities = generateStressChallenge(startDate); 
-                                break;
+                console.log('[Backend Sync] Challenges response:', JSON.stringify(challengesRes?.data, null, 2));
+                if (challengesRes?.data && Array.isArray(challengesRes.data)) {
+                    if (challengesRes.data.length > 0) {
+                        // Get the first active challenge (there should only be one)
+                        const activeChallenge = challengesRes.data[0];
+                        console.log('[Backend Sync] Active challenge object:', JSON.stringify(activeChallenge, null, 2));
+                        if (activeChallenge) {
+                            const challengeId = activeChallenge.challengeId || activeChallenge.type;
+                            console.log('[Backend Sync] Found active challenge:', challengeId, 'with dbId:', activeChallenge.id);
+                            
+                            // Generate challenge activities for the frontend
+                            const startDate = new Date(activeChallenge.startDate);
+                            startDate.setHours(0, 0, 0, 0);
+                            
+                            let challengeActivities: ChallengeActivity[] = [];
+                            switch(challengeId) {
+                                case 'sleepChallenge': 
+                                    challengeActivities = generateSleepChallenge(state.goals.regularSleep || { bedtime: '22:30', wakeTime: '06:30' } as any, startDate); 
+                                    break;
+                                case 'beweegChallenge': 
+                                    challengeActivities = generateBeweegChallenge(startDate); 
+                                    break;
+                                case 'voedingChallenge': 
+                                    challengeActivities = generateVoedingChallenge(startDate); 
+                                    break;
+                                case 'stopRokenChallenge': 
+                                    challengeActivities = generateStopRokenChallenge(startDate); 
+                                    break;
+                                case 'socialChallenge': 
+                                    challengeActivities = generateSocialChallenge(startDate); 
+                                    break;
+                                case 'stressChallenge': 
+                                    challengeActivities = generateStressChallenge(startDate); 
+                                    break;
+                            }
+                            
+                            if (challengeActivities.length > 0) {
+                                partialState.challenge = { 
+                                    id: challengeId as ChallengeId, 
+                                    activities: challengeActivities,
+                                    dbId: activeChallenge.id // Store the database ID for updates
+                                };
+                                console.log(`[Backend Sync] Loaded active challenge: ${challengeId} with ${challengeActivities.length} activities, dbId=${activeChallenge.id}`);
+                            }
                         }
-                        
-                        if (challengeActivities.length > 0) {
-                            partialState.challenge = { 
-                                id: challengeId as ChallengeId, 
-                                activities: challengeActivities,
-                                dbId: activeChallenge.id // Store the database ID for updates
-                            };
-                            console.log(`Loaded active challenge: ${challengeId} with ${challengeActivities.length} activities`);
-                        }
+                    } else {
+                        // No active challenges in backend - clear any locally stored challenge
+                        console.log('[Backend Sync] No active challenges in backend, clearing local challenge state');
+                        partialState.challenge = undefined;
                     }
                 }
                 
@@ -628,14 +639,14 @@ const AppContent = () => {
     useEffect(() => {
         if (state.surveys.length > prevSurveysCount.current && isAuthenticated) {
             const newSurvey = state.surveys[0]; // Most recent is first
-            syncService.syncSurveyResult(newSurvey).then(success => {
+            syncService.syncSurveyResult(newSurvey, t).then(success => {
                 if (success) {
                     console.log('Survey synced to backend');
                 }
             });
         }
         prevSurveysCount.current = state.surveys.length;
-    }, [state.surveys.length, isAuthenticated]);
+    }, [state.surveys.length, isAuthenticated, t]);
 
     // Track previous journals count to detect new additions
     const prevJournalsCount = useRef(state.journalHistory.length);
@@ -681,26 +692,46 @@ const AppContent = () => {
     };
 
     const handleChallengeActivityComplete = async (activity: ChallengeActivity, summary?: string) => {
-        const payload = await processCompletedChallengeActivity(dispatch, state, activity, t, language, summary);
-        if (payload) {
-            dispatch({ type: 'COMMIT_CHALLENGE_LIFESTEP', payload });
-            
-            // Sync challenge activity completion to backend
-            if (isAuthenticated && state.challenge?.dbId) {
-                syncService.syncChallengeActivityComplete(
-                    state.challenge.dbId,
-                    activity.day,
-                    {
+        try {
+            const payload = await processCompletedChallengeActivity(dispatch, state, activity, t, language, summary);
+            if (payload) {
+                dispatch({ type: 'COMMIT_CHALLENGE_LIFESTEP', payload });
+                
+                // Sync challenge activity completion to backend
+                if (isAuthenticated && state.challenge?.dbId) {
+                    const syncData = {
                         type: activity.type,
+                        data: activity.data, // Include the actual activity data (sleepDuration, checkin answers, etc.)
                         summary,
                         completedAt: new Date().toISOString()
-                    }
-                ).then(success => {
-                    if (success) {
-                        console.log('Challenge activity synced to backend');
-                    }
-                });
+                    };
+                    console.log('[handleChallengeActivityComplete] Syncing activity:', {
+                        dbId: state.challenge.dbId,
+                        day: activity.day,
+                        syncData
+                    });
+                    syncService.syncChallengeActivityComplete(
+                        state.challenge.dbId,
+                        activity.day,
+                        syncData
+                    ).then(success => {
+                        if (success) {
+                            console.log('Challenge activity synced to backend');
+                        } else {
+                            console.warn('Challenge activity sync returned false');
+                        }
+                    });
+                } else {
+                    console.log('[handleChallengeActivityComplete] Not syncing - isAuthenticated:', isAuthenticated, 'dbId:', state.challenge?.dbId);
+                }
+            } else {
+                // Even if payload is undefined, navigate back to timeline
+                dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } });
             }
+        } catch (error) {
+            console.error('Error completing challenge activity:', error);
+            // Always navigate back to timeline on error
+            dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } });
         }
     };
 
@@ -762,24 +793,41 @@ const AppContent = () => {
     };
     
     const startChallengeWithApi = async (challengeId: ChallengeId) => {
+        let dbId: string | undefined;
+        
         // If authenticated, save to backend
         if (isAuthenticated) {
             try {
                 const result = await apiService.startChallenge(challengeId);
-                if (result.success) {
+                if (result.success && result.data?.id) {
+                    dbId = result.data.id;
                     console.log('Challenge started in backend:', result.data);
                 }
             } catch (error) {
                 console.error('Failed to save challenge to backend:', error);
             }
         }
-        // Always dispatch to local state
-        dispatch({ type: 'INITIATE_CHALLENGE', payload: challengeId });
+        // Always dispatch to local state, with dbId if available
+        dispatch({ type: 'INITIATE_CHALLENGE', payload: { challengeId, dbId } });
+    };
+
+    const handleStopChallenge = async () => {
+        // Cancel challenge in backend if we have a dbId
+        if (state.challenge?.dbId) {
+            try {
+                await apiService.cancelChallenge(state.challenge.dbId);
+                console.log('Challenge cancelled in backend');
+            } catch (error) {
+                console.error('Failed to cancel challenge in backend:', error);
+            }
+        }
+        // Always clear local state
+        dispatch({ type: 'STOP_CHALLENGE' });
     };
 
     const handleConfirmReplace = async () => {
         if (pendingChallengeId) {
-            dispatch({ type: 'STOP_CHALLENGE' });
+            await handleStopChallenge();
             await startChallengeWithApi(pendingChallengeId);
             setIsReplaceModalOpen(false);
             setPendingChallengeId(null);
@@ -853,7 +901,7 @@ const AppContent = () => {
                 dispatch({ type: 'SET_LOADING', payload: null });
             }} isGenerating={!!state.loadingMessageKey} />;
             case 'timeline': return <MainScreen {...state} avatar={state.currentAvatar} level={currentLevel} onLogActivity={() => dispatch({ type: 'SET_VIEW', payload: { name: 'activityLogger' } })} onLogMeasurement={() => dispatch({ type: 'SET_VIEW', payload: { name: 'selectMeasurement' } })} onFillSurvey={() => dispatch({ type: 'SET_VIEW', payload: { name: 'selectSurvey' } })} onLogSmoke={() => dispatch({ type: 'SET_VIEW', payload: { name: 'logCigarette' } })} onShowAvatarDetails={() => dispatch({ type: 'SET_VIEW', payload: { name: 'settings' } })} onOpenChatbot={() => dispatch({ type: 'SET_VIEW', payload: { name: 'chatbot' } })} onLogJournal={() => state.activeJournal ? dispatch({ type: 'SET_VIEW', payload: { name: 'logJournal', journalId: state.activeJournal } }) : null} onSelectStep={handleSelectStep} onSelectChallengeActivity={onSelectChallengeActivity} onSelectSurvey={(result) => dispatch({ type: 'SET_VIEW', payload: { name: 'surveyResult', result } })} onLogFromReminder={(r) => handleLogFromReminder(r)} onStartSleepChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'sleepChallenge' } })} onLogSnack={() => {}} onLogDrink={() => {}} />;
-            case 'plan': return <PlanScreen goals={state.goals} challenge={state.challenge} activeJournal={state.activeJournal} measurements={state.measurements} onNavigate={(view) => dispatch({ type: 'SET_VIEW', payload: view })} onRemoveGoal={(key) => dispatch({ type: 'REMOVE_GOAL', payload: key })} onStartSleepChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'sleepChallenge' } })} onStartMovementChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'beweegChallenge' } })} onStartVoedingChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'voedingChallenge' } })} onStartStopRokenChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'stopRokenChallenge' } })} onStartSocialChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'socialChallenge' } })} onStartStressChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'stressChallenge' } })} onStopChallenge={() => dispatch({ type: 'STOP_CHALLENGE' })} onStartJournal={(id) => dispatch({ type: 'START_JOURNAL', payload: id })} onStopJournal={() => dispatch({ type: 'STOP_JOURNAL' })} />;
+            case 'plan': return <PlanScreen goals={state.goals} challenge={state.challenge} activeJournal={state.activeJournal} measurements={state.measurements} onNavigate={(view) => dispatch({ type: 'SET_VIEW', payload: view })} onRemoveGoal={(key) => dispatch({ type: 'REMOVE_GOAL', payload: key })} onStartSleepChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'sleepChallenge' } })} onStartMovementChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'beweegChallenge' } })} onStartVoedingChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'voedingChallenge' } })} onStartStopRokenChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'stopRokenChallenge' } })} onStartSocialChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'socialChallenge' } })} onStartStressChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'stressChallenge' } })} onStartHartfalenChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'hartfalenChallenge' } })} onStopChallenge={handleStopChallenge} onStartJournal={(id) => dispatch({ type: 'START_JOURNAL', payload: id })} onStopJournal={() => dispatch({ type: 'STOP_JOURNAL' })} />;
             case 'agenda': return <AgendaScreen dispatch={dispatch} goals={state.goals} reminders={state.reminders} challenge={state.challenge} lifeStory={state.lifeStory} challengeHistory={state.challengeHistory} onSelectChallengeActivity={onSelectChallengeActivity} onLogFromReminder={(r) => handleLogFromReminder(r)} />;
             case 'stats': return <StatsScreen goals={state.goals} challenge={state.challenge} challengeHistory={state.challengeHistory} measurements={state.measurements} surveys={state.surveys} />;
             case 'settings': return <AvatarDetailScreen avatar={state.currentAvatar} userInfo={state.userInfo} level={currentLevel} points={state.points} activityPoints={state.activityPoints} allHabitsUnlocked={state.allHabitsUnlocked} onUpdateUserInfo={(u) => dispatch({ type: 'UPDATE_USER_INFO', payload: u })} onToggleAllHabits={(v) => dispatch({ type: 'TOGGLE_ALL_HABITS', payload: v })} onResetApp={() => { localStorage.clear(); window.location.reload(); }} />;
@@ -949,7 +997,7 @@ const AppContent = () => {
             case 'eveningCheckinSocial': return <EveningCheckinScreenSocial activity={view.activity} onComplete={(a) => handleChallengeActivityComplete(a)} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
             case 'morningCheckinStress': return <MorningCheckinScreenStress activity={view.activity} onComplete={(a) => handleChallengeActivityComplete(a)} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
             case 'eveningCheckinStress': return <EveningCheckinScreenStress activity={view.activity} onComplete={(a) => handleChallengeActivityComplete(a)} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
-            case 'chatbot': return <ChatbotScreen appState={state} dispatch={dispatch} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
+            case 'chatbot': return <ChatbotScreen appState={state} dispatch={dispatch} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} onStopChallenge={handleStopChallenge} />;
             case 'weightProgress': return <WeightProgressScreen newMeasurement={view.newMeasurement} goal={view.goal} userInfo={state.userInfo} onStartChallenge={(id) => checkAndStartChallenge(id)} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
             case 'logJournal': return <LogJournalScreen journalId={view.journalId} onSave={(entry) => dispatch({ type: 'ADD_JOURNAL_ENTRY', payload: entry })} onClose={() => dispatch({ type: 'SET_VIEW', payload: { name: 'timeline' } })} />;
             default: return <MainScreen {...state} avatar={state.currentAvatar} level={currentLevel} onLogActivity={() => dispatch({ type: 'SET_VIEW', payload: { name: 'activityLogger' } })} onLogMeasurement={() => dispatch({ type: 'SET_VIEW', payload: { name: 'selectMeasurement' } })} onFillSurvey={() => dispatch({ type: 'SET_VIEW', payload: { name: 'selectSurvey' } })} onLogSmoke={() => dispatch({ type: 'SET_VIEW', payload: { name: 'logCigarette' } })} onShowAvatarDetails={() => dispatch({ type: 'SET_VIEW', payload: { name: 'settings' } })} onOpenChatbot={() => dispatch({ type: 'SET_VIEW', payload: { name: 'chatbot' } })} onLogJournal={() => state.activeJournal ? dispatch({ type: 'SET_VIEW', payload: { name: 'logJournal', journalId: state.activeJournal } }) : null} onSelectStep={handleSelectStep} onSelectChallengeActivity={onSelectChallengeActivity} onSelectSurvey={(result) => dispatch({ type: 'SET_VIEW', payload: { name: 'surveyResult', result } })} onLogFromReminder={(r) => handleLogFromReminder(r)} onStartSleepChallenge={() => dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId: 'sleepChallenge' } })} onLogSnack={() => {}} onLogDrink={() => {}} />;

@@ -334,6 +334,8 @@ const generateVitalityMeasurements = (count: number): VitalityMeasurement[] => {
 
 const getQuestionnaireMeta = (type: QuestionnaireType): { description: string; maxScore: number } => {
     switch (type) {
+        case QuestionnaireType.ZLM: return { description: "Gecombineerde vragenlijst over ziektelast en kwaliteit van leven.", maxScore: 108 };
+        case QuestionnaireType.CCQ: return { description: "Meet de dagelijkse symptomen en beperkingen bij COPD.", maxScore: 6 };
         case QuestionnaireType.FourDKL: return { description: "Meet distress, depressie, angst en somatisatie.", maxScore: 50 }; // Note: 50 items total, scoring is per scale
         case QuestionnaireType.PHQ9: return { description: "Screent op symptomen van depressie.", maxScore: 27 };
         case QuestionnaireType.GAD7: return { description: "Screent op symptomen van angst.", maxScore: 21 };
@@ -400,6 +402,40 @@ const get4DKLInterpretation = (dimension: string, score: number): { label: strin
         default:
             return { label: '', details: '' };
     }
+};
+
+// Helper function to get max score for a dimension in multi-dimensional questionnaires
+const getMaxScoreForDimension = (type: QuestionnaireType, dimension: string): number => {
+    if (type === QuestionnaireType.FourDKL) {
+        const dimMap: Record<string, number> = {
+            'distress': 32,
+            'depressie': 12,
+            'angst': 24,
+            'somatisatie': 32
+        };
+        return dimMap[dimension.toLowerCase()] || 32;
+    }
+    if (type === QuestionnaireType.HADS) {
+        return 21; // Both anxiety and depression max at 21
+    }
+    return 100;
+};
+
+// Helper function to get threshold for a dimension (where concern starts)
+const getThresholdForDimension = (type: QuestionnaireType, dimension: string): number => {
+    if (type === QuestionnaireType.FourDKL) {
+        const threshMap: Record<string, number> = {
+            'distress': 10,
+            'depressie': 2,
+            'angst': 3,
+            'somatisatie': 10
+        };
+        return threshMap[dimension.toLowerCase()] || 10;
+    }
+    if (type === QuestionnaireType.HADS) {
+        return 8; // Scores >= 8 indicate possible cases
+    }
+    return 0;
 };
 
 const generateQuestionnaires = (age: number): QuestionnaireResult[] => {
@@ -530,7 +566,7 @@ const generateMockParticipants = (): Participant[] => {
         return {
             id: `${index + 1}`,
             name,
-            avatarUrl: `https://picsum.photos/seed/${name.replace(' ','')}/200/200`,
+            avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3B82F6&color=fff`,
             age,
             dateOfBirth: generateDob(age),
             height: Math.floor(Math.random() * 30) + 160, 
@@ -583,6 +619,7 @@ export const startOrRestartChallenge = async (participantId: string, challengeDo
                 [Domain.Ontspanning]: 'stress',
                 [Domain.Zingeving]: 'social',
                 [Domain.Financien]: 'social',
+                [Domain.Hartfalen]: 'hartfalen',
             };
             const type = domainToType[challengeDomain] || 'sleep';
             await apiService.prescribeChallenge(participantId, type);
@@ -642,7 +679,7 @@ export const getParticipants = async (): Promise<Participant[]> => {
                 return response.data.patients.map((p: any) => ({
                     id: p.id,
                     name: p.name || 'Onbekend',
-                    avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'U')}&background=random`,
+                    avatarUrl: p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'U')}&background=3B82F6&color=fff`,
                     age: 0,
                     dateOfBirth: '',
                     height: 0,
@@ -666,6 +703,155 @@ export const getParticipants = async (): Promise<Participant[]> => {
     return mockParticipants;
 };
 
+/**
+ * Transform challenge activities from the backend into DailyDataPoint format for the dashboard
+ */
+function transformActivitiesToDailyData(activities: any[], domain: Domain, startDate?: string): DailyDataPoint[] {
+    console.log('[transformActivitiesToDailyData] Input:', { activitiesCount: activities?.length, domain, startDate, activities });
+    
+    if (!activities || activities.length === 0) {
+        console.log('[transformActivitiesToDailyData] No activities, returning empty array');
+        return [];
+    }
+
+    // Group activities by day
+    const dayMap = new Map<number, any[]>();
+    activities.forEach(a => {
+        const day = a.day || 1;
+        if (!dayMap.has(day)) {
+            dayMap.set(day, []);
+        }
+        dayMap.get(day)!.push(a);
+    });
+    
+    console.log('[transformActivitiesToDailyData] Day map:', Array.from(dayMap.entries()));
+
+    // Create daily data points for 14 days
+    const data: DailyDataPoint[] = [];
+    const start = startDate ? new Date(startDate) : new Date();
+
+    for (let day = 1; day <= 14; day++) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + day - 1);
+        const dateString = date.toISOString().split('T')[0];
+
+        const dayActivities = dayMap.get(day) || [];
+        
+        // Find specific activities
+        const morningActivity = dayActivities.find((a: any) => a.type === 'morningCheckin');
+        const eveningActivity = dayActivities.find((a: any) => a.type === 'eveningCheckin');
+        const braintainmentActivity = dayActivities.find((a: any) => a.type === 'braintainment');
+
+        // Build interactions
+        const interactions = {
+            morning: morningActivity?.status === 'completed',
+            midday: braintainmentActivity?.status === 'completed',
+            evening: eveningActivity?.status === 'completed'
+        };
+
+        let value = 0;
+        let details: SleepDataDetails | undefined = undefined;
+        let movementDetails: MovementDataDetails | undefined = undefined;
+        let nutritionDetails: NutritionDataDetails | undefined = undefined;
+        let cigaretteLogs: CigaretteLog[] | undefined = undefined;
+
+        if (domain === Domain.Slaap) {
+            // Extract sleep hours and quality from morning checkin
+            if (morningActivity?.data?.sleepDuration) {
+                const sd = morningActivity.data.sleepDuration;
+                value = (sd.hours || 0) + (sd.minutes || 0) / 60;
+            }
+
+            // Extract sleep hygiene from evening checkin (q1-q7 mapped to SleepDataDetails)
+            if (eveningActivity?.data) {
+                const ed = eveningActivity.data;
+                details = {
+                    wentToBedOnTime: ed.q1 || false,
+                    noAlcoholOrCoffee: ed.q2 || false,
+                    darkAndQuiet: ed.q3 || false,
+                    goodTemperature: ed.q4 || false,
+                    didMoveToday: ed.q5 || false,
+                    noScreenTime: ed.q6 || false,
+                    relaxingActivity: ed.q7 || false,
+                    sleepQuality: morningActivity?.data?.sleepQuality,
+                };
+            } else if (morningActivity?.data?.sleepQuality) {
+                // If no evening data but we have morning data with sleep quality
+                details = {
+                    wentToBedOnTime: false,
+                    noAlcoholOrCoffee: false,
+                    darkAndQuiet: false,
+                    goodTemperature: false,
+                    didMoveToday: false,
+                    noScreenTime: false,
+                    relaxingActivity: false,
+                    sleepQuality: morningActivity.data.sleepQuality,
+                };
+            }
+        } else if (domain === Domain.Beweeg) {
+            // Extract movement data
+            if (morningActivity?.data?.didExercise !== undefined) {
+                const morningDone = morningActivity.data.didExercise;
+                movementDetails = {
+                    dailyGoal: 10000,
+                    morningExerciseCompleted: morningDone,
+                    quizScore: braintainmentActivity?.data?.quizScore || 0
+                };
+                // Steps from evening
+                if (eveningActivity?.data?.steps) {
+                    value = eveningActivity.data.steps;
+                }
+            }
+        } else if (domain === Domain.Voeding) {
+            // Extract nutrition data
+            const breakfastActivity = dayActivities.find((a: any) => a.type === 'breakfastCheckin');
+            const lunchActivity = dayActivities.find((a: any) => a.type === 'lunchCheckin');
+            const dinnerActivity = dayActivities.find((a: any) => a.type === 'dinnerCheckin');
+            const weighInActivity = dayActivities.find((a: any) => a.type === 'weighIn');
+
+            nutritionDetails = {
+                weight: weighInActivity?.data?.weight,
+                mealsLogged: {
+                    breakfast: breakfastActivity?.status === 'completed',
+                    lunch: lunchActivity?.status === 'completed',
+                    dinner: dinnerActivity?.status === 'completed',
+                },
+                quizScore: braintainmentActivity?.data?.quizScore || 0
+            };
+            value = (nutritionDetails.mealsLogged.breakfast ? 1 : 0) + 
+                    (nutritionDetails.mealsLogged.lunch ? 1 : 0) + 
+                    (nutritionDetails.mealsLogged.dinner ? 1 : 0);
+        } else if (domain === Domain.Roken) {
+            // Extract smoking data
+            if (morningActivity?.data?.cigaretteLogs) {
+                cigaretteLogs = morningActivity.data.cigaretteLogs;
+                value = cigaretteLogs.length;
+            } else if (eveningActivity?.data?.cigaretteCount !== undefined) {
+                value = eveningActivity.data.cigaretteCount;
+            }
+        } else {
+            // Generic domain - use a score if available
+            if (morningActivity?.data?.score !== undefined) {
+                value = morningActivity.data.score;
+            } else if (eveningActivity?.data?.score !== undefined) {
+                value = eveningActivity.data.score;
+            }
+        }
+
+        data.push({
+            date: dateString,
+            value,
+            interactions,
+            details,
+            movementDetails,
+            nutritionDetails,
+            cigaretteLogs
+        });
+    }
+
+    return data;
+}
+
 export const getParticipantById = async (id: string): Promise<Participant | undefined> => {
     // Try API first if authenticated
     if (useApi()) {
@@ -682,15 +868,39 @@ export const getParticipantById = async (id: string): Promise<Participant | unde
                     apiService.getPatientSurveys(id)
                 ]);
 
-                // Transform challenges
-                const challenges: Challenge[] = (challengesRes.data || []).map((c: any) => ({
-                    domain: mapChallengeIdToDomain(c.challengeId || c.type),
-                    startDate: c.startDate?.split('T')[0] || '',
-                    endDate: c.endDate?.split('T')[0] || '',
-                    progress: c.status === 'completed' ? 100 : (c.status === 'stopped' ? 0 : (c.progress || 0)),
-                    status: c.status || 'new',
-                    data: []
-                }));
+                console.log('[getParticipantById] Challenges list:', challengesRes.data);
+
+                // Fetch detailed challenge data with activities for each challenge
+                const challengeDetails = await Promise.all(
+                    (challengesRes.data || []).map(async (c: any) => {
+                        try {
+                            const detailRes = await apiService.getPatientChallengeDetail(id, c.id);
+                            console.log('[getParticipantById] Challenge detail for', c.id, ':', detailRes.data);
+                            return detailRes.success ? detailRes.data : c;
+                        } catch (e) {
+                            console.error('[getParticipantById] Failed to get challenge detail:', e);
+                            return c;
+                        }
+                    })
+                );
+
+                console.log('[getParticipantById] All challenge details:', challengeDetails);
+
+                // Transform challenges with their activity data
+                const challenges: Challenge[] = challengeDetails.map((c: any) => {
+                    const domain = mapChallengeIdToDomain(c.challengeId || c.type);
+                    const data = transformActivitiesToDailyData(c.activities || [], domain, c.startDate);
+                    console.log('[getParticipantById] Transformed challenge:', { challengeId: c.challengeId, domain, dataLength: data.length });
+                    return {
+                        domain,
+                        startDate: c.startDate?.split('T')[0] || '',
+                        endDate: c.endDate?.split('T')[0] || '',
+                        progress: c.status === 'completed' ? 100 : (c.status === 'stopped' ? 0 : (c.progress || 0)),
+                        status: c.status || 'new',
+                        data
+                    };
+                });
+
 
                 // Transform measurements to vitality
                 const vitalityMeasurements: VitalityMeasurement[] = (measurementsRes.data || []).map((m: any) => {
@@ -728,22 +938,81 @@ export const getParticipantById = async (id: string): Promise<Participant | unde
                 });
 
                 // Transform surveys to questionnaires
-                const questionnaires: QuestionnaireResult[] = (surveysRes.data || []).map((s: any) => ({
-                    id: s.id,
-                    type: mapSurveyTypeToQuestionnaire(s.type),
-                    description: s.type.toUpperCase(),
-                    completed: true,
-                    date: s.completedAt?.split('T')[0],
-                    score: s.score,
-                    maxScore: 100,
-                    resultLabel: s.interpretation || '',
-                    answers: []
-                }));
+                const completedQuestionnaires: QuestionnaireResult[] = (surveysRes.data || []).map((s: any) => {
+                    const questionnaireType = mapSurveyTypeToQuestionnaire(s.surveyId || s.type);
+                    const meta = getQuestionnaireMeta(questionnaireType);
+                    
+                    // Transform answers from backend format to QuestionnaireItem format
+                    const transformedAnswers: QuestionnaireItem[] = (s.answers || []).map((answer: any, index: number) => ({
+                        id: answer.questionId || `q${index + 1}`,
+                        question: answer.questionText || `Vraag ${index + 1}`,
+                        answerLabel: answer.answerLabel || answer.answerText || String(answer.value),
+                        score: typeof answer.value === 'number' ? answer.value : (answer.score || 0)
+                    }));
+
+                    // Extract sub-scores if available (e.g., for 4DKL)
+                    let subScores = undefined;
+                    if (s.scores && typeof s.scores === 'object') {
+                        const scoreKeys = Object.keys(s.scores);
+                        if (scoreKeys.length > 0 && scoreKeys[0] !== 'score') {
+                            subScores = scoreKeys.map(key => {
+                                const score = s.scores[key];
+                                const interp = s.interpretation?.[key] || {};
+                                return {
+                                    label: key.charAt(0).toUpperCase() + key.slice(1),
+                                    score: typeof score === 'number' ? score : 0,
+                                    max: getMaxScoreForDimension(questionnaireType, key),
+                                    threshold: getThresholdForDimension(questionnaireType, key),
+                                    interpretation: interp.label || '',
+                                    interpretationDetails: interp.details || interp.description || ''
+                                };
+                            });
+                        }
+                    }
+
+                    return {
+                        id: s.id,
+                        type: questionnaireType,
+                        description: meta.description,
+                        completed: true,
+                        date: (s.completedAt || s.timestamp)?.split('T')[0],
+                        score: Math.round(s.totalScore || s.score || s.scores?.score || 0),
+                        maxScore: s.maxScore || meta.maxScore,
+                        resultLabel: typeof s.interpretation === 'string' ? s.interpretation : (s.resultLabel || ''),
+                        subScores,
+                        answers: transformedAnswers
+                    };
+                });
+
+                // Merge completed questionnaires with all available types
+                // Show all questionnaire types, with completed data where available
+                const allQuestionnaireTypes = Object.values(QuestionnaireType);
+                const questionnaires: QuestionnaireResult[] = allQuestionnaireTypes.map(type => {
+                    // Find if this questionnaire type has been completed
+                    const completed = completedQuestionnaires.find(q => q.type === type);
+                    if (completed) {
+                        return completed;
+                    }
+                    // Return empty/not completed questionnaire
+                    const meta = getQuestionnaireMeta(type);
+                    return {
+                        id: `pending-${type}`,
+                        type,
+                        description: meta.description,
+                        completed: false,
+                        date: undefined,
+                        score: undefined,
+                        maxScore: meta.maxScore,
+                        resultLabel: undefined,
+                        subScores: undefined,
+                        answers: undefined
+                    };
+                });
 
                 return {
                     id: p.id,
                     name: p.name || 'Onbekend',
-                    avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'U')}&background=random`,
+                    avatarUrl: p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'U')}&background=3B82F6&color=fff`,
                     age: p.dateOfBirth ? calculateAge(p.dateOfBirth) : 0,
                     dateOfBirth: p.dateOfBirth || '',
                     height: p.initialBMI?.height || 0,
@@ -798,6 +1067,7 @@ function mapChallengeIdToDomain(challengeId: string): Domain {
         'stopRokenChallenge': Domain.Roken,
         'socialChallenge': Domain.Sociaal,
         'stressChallenge': Domain.Stress,
+        'hartfalenChallenge': Domain.Hartfalen,
         // Also support legacy type names
         'sleep': Domain.Slaap,
         'movement': Domain.Beweeg,
@@ -805,18 +1075,29 @@ function mapChallengeIdToDomain(challengeId: string): Domain {
         'smoking': Domain.Roken,
         'social': Domain.Sociaal,
         'stress': Domain.Stress,
+        'hartfalen': Domain.Hartfalen,
     };
     return map[challengeId] || Domain.Slaap;
 }
 
 function mapSurveyTypeToQuestionnaire(type: string): QuestionnaireType {
     const map: Record<string, QuestionnaireType> = {
+        'zlm': QuestionnaireType.ZLM,
+        'ccq': QuestionnaireType.CCQ,
+        'fourDKL': QuestionnaireType.FourDKL,
+        '4dkl': QuestionnaireType.FourDKL,
         'phq9': QuestionnaireType.PHQ9,
         'gad7': QuestionnaireType.GAD7,
+        'hads': QuestionnaireType.HADS,
         'audit': QuestionnaireType.AUDIT,
         'fagerstrom': QuestionnaireType.Fagerstrom,
+        'cat': QuestionnaireType.CAT,
+        'mmrc': QuestionnaireType.mMRC,
+        'vasPain': QuestionnaireType.VAS,
+        'gfi': QuestionnaireType.GFI,
+        'pam13': QuestionnaireType.PAM13,
     };
-    return map[type] || QuestionnaireType.PHQ9;
+    return map[type] || QuestionnaireType.ZLM;
 }
 
 function calculateAge(dateOfBirth: string): number {

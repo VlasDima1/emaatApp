@@ -39,7 +39,25 @@ const ChallengeSummary: React.FC<ChallengeSummaryProps> = ({ participantName, ch
 
 
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+        
+        if (!apiKey) {
+          // No API key - provide a manual summary
+          const changePercent = startValue > 0 ? ((currentValue - startValue) / startValue * 100).toFixed(0) : 0;
+          const trendText = currentValue > startValue 
+            ? `een stijging van ${changePercent}%` 
+            : currentValue < startValue 
+              ? `een daling van ${Math.abs(Number(changePercent))}%` 
+              : 'geen verandering';
+          
+          setSummary(`• ${participantName} is actief bezig met de ${challenge.domain} challenge (${activeData.length} dagen data).
+• Startwaarde: ${startValue.toFixed(1)} ${unit}, huidige waarde: ${currentValue.toFixed(1)} ${unit} (${trendText}).
+• Gemiddelde over de periode: ${averageValue.toFixed(1)} ${unit}.`);
+          setLoading(false);
+          return;
+        }
+        
+        const ai = new GoogleGenAI({ apiKey });
         const prompt = `
             Analyseer de voortgangsdata van deelnemer ${participantName} voor de e-health challenge '${challenge.domain}'.
             
@@ -64,7 +82,17 @@ const ChallengeSummary: React.FC<ChallengeSummaryProps> = ({ participantName, ch
         setSummary(response.text);
       } catch (error) {
         console.error("Error generating challenge summary:", error);
-        setSummary(`Er is een fout opgetreden bij het genereren van de samenvatting. ${participantName} is gestart met een waarde van ${startValue.toFixed(1)} en heeft nu een waarde van ${currentValue.toFixed(1)}.`);
+        // Provide a useful fallback summary
+        const changePercent = startValue > 0 ? ((currentValue - startValue) / startValue * 100).toFixed(0) : 0;
+        const trendText = currentValue > startValue 
+          ? `een stijging van ${changePercent}%` 
+          : currentValue < startValue 
+            ? `een daling van ${Math.abs(Number(changePercent))}%` 
+            : 'geen verandering';
+        
+        setSummary(`• ${participantName} is actief bezig met de ${challenge.domain} challenge (${activeData.length} dagen data).
+• Startwaarde: ${startValue.toFixed(1)} ${unit}, huidige waarde: ${currentValue.toFixed(1)} ${unit} (${trendText}).
+• Gemiddelde over de periode: ${averageValue.toFixed(1)} ${unit}.`);
       } finally {
         setLoading(false);
       }

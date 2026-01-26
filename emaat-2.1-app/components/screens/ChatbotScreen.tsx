@@ -24,6 +24,7 @@ interface ChatbotScreenProps {
     appState: AppState;
     dispatch: React.Dispatch<Action>;
     onClose: () => void;
+    onStopChallenge: () => Promise<void>;
 }
 
 const PromptModal: FC<{ prompt: string; onClose: () => void }> = ({ prompt, onClose }) => {
@@ -43,7 +44,7 @@ const PromptModal: FC<{ prompt: string; onClose: () => void }> = ({ prompt, onCl
 };
 
 
-const ChatbotScreen: FC<ChatbotScreenProps> = ({ appState, dispatch, onClose }) => {
+const ChatbotScreen: FC<ChatbotScreenProps> = ({ appState, dispatch, onClose, onStopChallenge }) => {
     const { t, language } = useLanguage();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -364,9 +365,9 @@ const ChatbotScreen: FC<ChatbotScreenProps> = ({ appState, dispatch, onClose }) 
         }
     };
 
-    const handleReplaceChallenge = (challengeId: ChallengeId) => {
+    const handleReplaceChallenge = async (challengeId: ChallengeId) => {
         setMessages(prev => prev.filter(m => !m.action));
-        dispatch({ type: 'STOP_CHALLENGE' });
+        await onStopChallenge();
         dispatch({ type: 'SET_VIEW', payload: { name: 'challengeIntroPreview', challengeId } });
     };
 

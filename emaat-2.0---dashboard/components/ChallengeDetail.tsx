@@ -25,8 +25,9 @@ const ChallengeView: React.FC<ChallengeViewProps> = ({ participant, challenge, o
   
   // Use status field if available, otherwise fall back to progress-based logic
   const isNewChallenge = challenge.status === 'new' || (!challenge.status && challenge.progress === 0 && !challenge.startDate);
+  const isStopped = challenge.status === 'stopped';
   const isActive = challenge.status === 'active';
-  const isInProgress = isActive || (challenge.progress > 0 && challenge.progress < 100);
+  const isInProgress = isActive || (!isStopped && challenge.progress > 0 && challenge.progress < 100 && challenge.status !== 'completed');
   const isCompleted = challenge.status === 'completed' || challenge.progress === 100;
 
   // Calculate challenge day for header
@@ -65,7 +66,7 @@ const ChallengeView: React.FC<ChallengeViewProps> = ({ participant, challenge, o
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0 ml-auto">
-                {(challengeDay > 0 || isActive) && (
+                {(challengeDay > 0 || isActive) && !isStopped && (
                      <div className="bg-blue-100 text-blue-800 text-sm font-bold px-4 py-1.5 rounded-full flex items-center">
                         {isInProgress && (
                             <>

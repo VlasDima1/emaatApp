@@ -14,7 +14,8 @@ const CHALLENGE_TYPES = {
     beweegChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 },
     socialChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 },
     voedingChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 },
-    stopRokenChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 }
+    stopRokenChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 },
+    hartfalenChallenge: { duration: 15, dailyPoints: 10, completionPoints: 100 }
 };
 
 // Map backend type names to database ChallengeId values (for backwards compatibility)
@@ -25,13 +26,15 @@ const TYPE_TO_CHALLENGE_ID = {
     'social': 'socialChallenge',
     'nutrition': 'voedingChallenge',
     'smoking': 'stopRokenChallenge',
+    'hartfalen': 'hartfalenChallenge',
     // Also accept direct challengeId names
     'sleepChallenge': 'sleepChallenge',
     'stressChallenge': 'stressChallenge',
     'beweegChallenge': 'beweegChallenge',
     'socialChallenge': 'socialChallenge',
     'voedingChallenge': 'voedingChallenge',
-    'stopRokenChallenge': 'stopRokenChallenge'
+    'stopRokenChallenge': 'stopRokenChallenge',
+    'hartfalenChallenge': 'hartfalenChallenge'
 };
 
 /**
@@ -355,6 +358,162 @@ const cancelChallenge = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update challenge progress (alias for complete-day, used by mobile app)
+ * POST /api/patient/challenges/:id/progress
+ * Accepts: { dayNumber, type, data, ...rest }
+ */
+const updateChallengeProgress = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { dayNumber, type, data: activityData, ...rest } = req.body;
+    
+    console.log('[updateChallengeProgress] Received:', {
+        challengeId: id,
+        dayNumber,
+        type,
+        activityData,
+        rest,
+        fullBody: req.body
+    });
+    
+    // Activity type (e.g., morningCheckin, eveningCheckin, braintainment)
+    const activityType = type || 'daily';
+    
+    // The actual data to store (could be nested in 'data' or spread in rest)
+    const dataToStore = activityData || rest;
+    
+    console.log('[updateChallengeProgress] Storing:', {
+        activityType,
+        dataToStore
+    });
+    
+    // If no dayNumber, calculate from start date
+    let day = dayNumber;
+    
+    if (!day) {
+        // Get challenge start date to calculate current day
+        const challenge = await executeQuery(
+            `SELECT StartDate FROM Challenges WHERE Id = @id AND UserId = @userId`,
+            { id, userId: req.user.userId }
+        );
+        
+        if (challenge.recordset.length === 0) {
+            throw new AppError('Challenge not found', 404, 'NOT_FOUND');
+        }
+        
+        const startDate = new Date(challenge.recordset[0].StartDate);
+        const today = new Date();
+        day = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        day = Math.max(1, Math.min(day, 15)); // Clamp between 1 and 15
+    }
+    
+    // Verify challenge ownership and status
+    const challenge = await executeQuery(
+        `SELECT * FROM Challenges WHERE Id = @id AND UserId = @userId`,
+        { id, userId: req.user.userId }
+    );
+    
+    if (challenge.recordset.length === 0) {
+        throw new AppError('Challenge not found', 404, 'NOT_FOUND');
+    }
+    
+    if (challenge.recordset[0].Status !== 'active') {
+        throw new AppError('Challenge is not active', 400, 'CHALLENGE_NOT_ACTIVE');
+    }
+    
+    // Check if activity with this day AND type already exists
+    const existingActivity = await executeQuery(
+        `SELECT Id FROM ChallengeActivities WHERE ChallengeId = @challengeId AND Day = @dayNumber AND Type = @type`,
+        { challengeId: id, dayNumber: day, type: activityType }
+    );
+    
+    // Serialize the data to store
+    const dataJson = dataToStore && Object.keys(dataToStore).length > 0 ? JSON.stringify(dataToStore) : null;
+    
+    if (existingActivity.recordset.length > 0) {
+        await executeQuery(
+            `UPDATE ChallengeActivities 
+             SET Status = 'completed', Data = @data, CompletedAt = GETUTCDATE()
+             WHERE ChallengeId = @challengeId AND Day = @dayNumber AND Type = @type`,
+            {
+                challengeId: id,
+                dayNumber: day,
+                type: activityType,
+                data: dataJson
+            }
+        );
+    } else {
+        // Activity doesn't exist, create it
+        await executeQuery(
+            `INSERT INTO ChallengeActivities (Id, ChallengeId, UserId, Day, Type, ScheduledAt, Status, Data, CompletedAt, CreatedAt)
+             VALUES (@id, @challengeId, @userId, @day, @type, GETUTCDATE(), 'completed', @data, GETUTCDATE(), GETUTCDATE())`,
+            {
+                id: uuidv4(),
+                challengeId: id,
+                userId: req.user.userId,
+                day,
+                type: activityType,
+                data: dataJson
+            }
+        );
+    }
+    
+    // Award points
+    const config = CHALLENGE_TYPES[challenge.recordset[0].ChallengeId];
+    if (config) {
+        try {
+            await updateActivityPoints(req.user.userId, 'challenge_daily', config.dailyPoints);
+        } catch (e) {
+            console.log('Points update skipped:', e.message);
+        }
+    }
+    
+    // Calculate progress based on unique days with at least one completed activity
+    const completedDays = await executeQuery(
+        `SELECT COUNT(DISTINCT Day) as count FROM ChallengeActivities 
+         WHERE ChallengeId = @challengeId AND Status = 'completed'`,
+        { challengeId: id }
+    );
+    
+    const duration = config ? config.duration : 15;
+    const progress = Math.round((completedDays.recordset[0].count / duration) * 100);
+    
+    // Update challenge progress
+    await executeQuery(
+        `UPDATE Challenges SET Progress = @progress, UpdatedAt = GETUTCDATE() WHERE Id = @id`,
+        { id, progress }
+    );
+    
+    // Check if challenge is complete (all days have activities)
+    if (completedDays.recordset[0].count >= duration) {
+        await executeQuery(
+            `UPDATE Challenges SET Status = 'completed', Progress = 100, UpdatedAt = GETUTCDATE()
+             WHERE Id = @id`,
+            { id }
+        );
+        
+        // Award completion bonus
+        if (config) {
+            try {
+                await updateActivityPoints(req.user.userId, 'challenge_complete', config.completionPoints);
+            } catch (e) {
+                console.log('Completion points update skipped:', e.message);
+            }
+        }
+    }
+    
+    res.json({
+        success: true,
+        message: 'Challenge progress updated',
+        data: {
+            dayNumber: day,
+            completed: true,
+            progress,
+            pointsEarned: config ? config.dailyPoints : 10
+        }
+    });
+});
+
+/**
  * Get challenge history/stats
  * GET /api/patient/challenges/stats
  */
@@ -422,6 +581,7 @@ module.exports = {
     getChallengeById,
     startChallenge,
     completeDailyActivity,
+    updateChallengeProgress,
     cancelChallenge,
     getChallengeStats
 };

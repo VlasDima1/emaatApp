@@ -17,7 +17,7 @@ interface RegisterData {
 
 interface RegisterScreenProps {
     onSwitchToLogin: () => void;
-    onRegister: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+    onRegister: (data: RegisterData) => Promise<{ success: boolean; error?: string; user?: any }>;
     onSkip: () => void;
 }
 
@@ -48,7 +48,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin, onRegi
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
     
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     // Get video devices
@@ -191,7 +190,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin, onRegi
         const result = await onRegister(registerData);
         
         if (result.success) {
-            setSuccess(true);
+            // User is automatically logged in after registration
+            // The auth state change will trigger navigation to the main app
+            // No need to do anything here as AuthContext handles the user state
         } else {
             setError(result.error || 'Registratie mislukt. Probeer het opnieuw.');
         }
@@ -203,30 +204,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin, onRegi
         // Submit without photo
         await handleSubmit();
     };
-
-    if (success) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                    <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                            <span className="text-3xl">✓</span>
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Aangemaakt!</h2>
-                        <p className="text-gray-600 mb-6">
-                            Je account is succesvol aangemaakt. Je kunt nu inloggen met je e-mailadres en wachtwoord.
-                        </p>
-                        <button
-                            onClick={onSwitchToLogin}
-                            className="w-full py-3 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium rounded-xl transition-all"
-                        >
-                            Naar Inloggen
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     // Step indicator
     const StepIndicator = () => (

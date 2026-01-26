@@ -19,6 +19,7 @@ import { voedingChallengeTranslations } from './challenges/voedingChallenge/tran
 import { stopRokenChallengeTranslations } from './challenges/stopRokenChallenge/translations';
 import { socialChallengeTranslations } from './challenges/socialChallenge/translations';
 import { stressChallengeTranslations } from './challenges/stressChallenge/translations';
+import { hartfalenChallengeTranslations } from './challenges/hartfalenChallenge/translations';
 import { commonTranslations } from './translations/common';
 import { entitiesTranslations } from './translations/entities';
 import { measurementsTranslations } from './translations/measurements';
@@ -37,7 +38,7 @@ const surveyModules: TranslationModule[] = [
 
 const challengeModules: TranslationModule[] = [
   sleepChallengeTranslations, beweegChallengeTranslations, voedingChallengeTranslations,
-  stopRokenChallengeTranslations, socialChallengeTranslations, stressChallengeTranslations,
+  stopRokenChallengeTranslations, socialChallengeTranslations, stressChallengeTranslations, hartfalenChallengeTranslations,
 ];
 
 const coreModules: TranslationModule[] = [

@@ -17,6 +17,7 @@ const colorConfig: Record<string, { whyClass: string; whatClass: string }> = {
     stopRokenChallenge: { whyClass: 'bg-slate-50 border-slate-400 text-slate-800 text-slate-700', whatClass: 'bg-emerald-50 border-emerald-400 text-emerald-800 text-emerald-700' },
     socialChallenge: { whyClass: 'bg-amber-50 border-amber-400 text-amber-800 text-amber-700', whatClass: 'bg-emerald-50 border-emerald-400 text-emerald-800 text-emerald-700' },
     stressChallenge: { whyClass: 'bg-teal-50 border-teal-400 text-teal-800 text-teal-700', whatClass: 'bg-emerald-50 border-emerald-400 text-emerald-800 text-emerald-700' },
+    hartfalenChallenge: { whyClass: 'bg-rose-50 border-rose-400 text-rose-800 text-rose-700', whatClass: 'bg-emerald-50 border-emerald-400 text-emerald-800 text-emerald-700' },
 };
 
 const ChallengeIntroductionScreen: FC<ChallengeIntroductionScreenProps> = ({ activity, onStart, onClose }) => {

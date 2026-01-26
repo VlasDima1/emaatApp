@@ -97,7 +97,7 @@ export interface Reminder {
     visibleAt: Date;
 }
 
-export type ChallengeId = 'sleepChallenge' | 'beweegChallenge' | 'voedingChallenge' | 'stopRokenChallenge' | 'socialChallenge' | 'stressChallenge';
+export type ChallengeId = 'sleepChallenge' | 'beweegChallenge' | 'voedingChallenge' | 'stopRokenChallenge' | 'socialChallenge' | 'stressChallenge' | 'hartfalenChallenge';
 export type ChallengeActivityType = 'introduction' | 'morningCheckin' | 'braintainment' | 'eveningCheckin' | 'breakfastCheckin' | 'lunchCheckin' | 'dinnerCheckin' | 'weighIn' | 'dailyAssignment' | 'snackCheckin' | 'drinkCheckin';
 export type ChallengeActivityStatus = 'pending' | 'completed';
 export interface MorningCheckinData { sleepDuration: { hours: number; minutes: number }; sleepQuality: number; }
@@ -402,7 +402,7 @@ export type Action =
     | { type: 'STOP_CHALLENGE' }
     | { type: 'ADD_MEASUREMENT', payload: Measurement }
     | { type: 'ADD_SURVEY_RESULT', payload: SurveyResult }
-    | { type: 'INITIATE_CHALLENGE'; payload: ChallengeId }
+    | { type: 'INITIATE_CHALLENGE'; payload: { challengeId: ChallengeId; dbId?: string } }
     | { type: 'START_JOURNAL'; payload: JournalId }
     | { type: 'STOP_JOURNAL' }
     | { type: 'ADD_JOURNAL_ENTRY'; payload: JournalEntry };

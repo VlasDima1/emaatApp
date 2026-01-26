@@ -317,6 +317,15 @@ const getPatientChallengeDetail = asyncHandler(async (req, res) => {
         { challengeId }
     );
     
+    console.log('[getPatientChallengeDetail] Raw activities from DB:', activitiesResult.recordset.map(a => ({
+        id: a.Id,
+        day: a.Day,
+        type: a.Type,
+        status: a.Status,
+        hasData: !!a.Data,
+        data: a.Data
+    })));
+    
     const challenge = {
         id: c.Id,
         challengeId: c.ChallengeId,
@@ -334,6 +343,13 @@ const getPatientChallengeDetail = asyncHandler(async (req, res) => {
             data: a.Data ? JSON.parse(a.Data) : null
         }))
     };
+    
+    console.log('[getPatientChallengeDetail] Returning challenge:', {
+        id: challenge.id,
+        challengeId: challenge.challengeId,
+        activitiesCount: challenge.activities.length,
+        completedActivities: challenge.activities.filter(a => a.status === 'completed').length
+    });
     
     res.json({
         success: true,
@@ -356,31 +372,47 @@ const getPatientSurveys = asyncHandler(async (req, res) => {
     }
     
     let query = `
-        SELECT Id, Type, Score, Answers, CompletedAt, Interpretation
+        SELECT Id, SurveyId, TotalScore, Answers, Timestamp, Interpretation, Scores, MaxScore, ResultLabel
         FROM SurveyResults
         WHERE UserId = @patientId
     `;
     const params = { patientId };
     
     if (type) {
-        query += ' AND Type = @type';
+        query += ' AND SurveyId = @type';
         params.type = type;
     }
     
-    query += ' ORDER BY CompletedAt DESC';
+    query += ' ORDER BY Timestamp DESC';
     query += ` OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY`;
     params.limit = parseInt(limit);
     
     const result = await executeQuery(query, params);
     
-    const surveys = result.recordset.map(s => ({
-        id: s.Id,
-        type: s.Type,
-        score: s.Score,
-        answers: s.Answers ? JSON.parse(s.Answers) : [],
-        completedAt: s.CompletedAt,
-        interpretation: s.Interpretation
-    }));
+    const surveys = result.recordset.map(s => {
+        let answers = [];
+        let scores = {};
+        let interpretation = {};
+        
+        try { if (s.Answers) answers = JSON.parse(s.Answers); } catch (e) {}
+        try { if (s.Scores) scores = JSON.parse(s.Scores); } catch (e) {}
+        try { if (s.Interpretation) interpretation = JSON.parse(s.Interpretation); } catch (e) {}
+        
+        return {
+            id: s.Id,
+            type: s.SurveyId,
+            surveyId: s.SurveyId,
+            score: s.TotalScore,
+            totalScore: s.TotalScore,
+            maxScore: s.MaxScore,
+            answers,
+            scores,
+            completedAt: s.Timestamp,
+            timestamp: s.Timestamp,
+            interpretation,
+            resultLabel: s.ResultLabel
+        };
+    });
     
     res.json({
         success: true,

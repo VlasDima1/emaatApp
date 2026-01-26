@@ -303,7 +303,7 @@ const SurveyCard: FC<{ item: SurveyResult; onSelect: (item: SurveyResult) => voi
     const Icon = survey.icon;
     const color = 'text-purple-500';
 
-    const interpretations = Object.entries(item.interpretation).map(([dimension, level]) => {
+    const interpretations = Object.entries(item.interpretation || {}).map(([dimension, level]) => {
         const dimensionName = t(`surveys.${item.surveyId}.dimensions.${dimension}`);
         const interpretationText = t(`surveys.${item.surveyId}.interpretations.${dimension}.${level}`);
         const adviceText = t(`surveys.${item.surveyId}.advice.${dimension}.${level}`);

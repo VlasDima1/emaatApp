@@ -149,6 +149,12 @@ class ApiService {
         });
     }
 
+    async cancelChallenge(challengeId: string) {
+        return this.request<any>(`/patient/challenges/${challengeId}/cancel`, {
+            method: 'POST',
+        });
+    }
+
     // ============================================
     // GOALS ENDPOINTS
     // ============================================

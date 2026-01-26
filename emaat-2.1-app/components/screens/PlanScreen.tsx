@@ -8,7 +8,7 @@ import { Goals, Activity, View, ChallengeState, ChallengeId, JournalId, Measurem
 import { ACTIVITIES } from '../../constants';
 import { GOAL_CONFIG } from '../../goals';
 import { formatGoalText, goalKeyToActivityIdMap } from '../../utils';
-import { PencilIcon, PlusIcon, XIcon, BedIcon, DumbbellIcon, UtensilsIcon, CheckCircleIcon, SmokingIcon, UsersIcon, BookOpenIcon, ClipboardListIcon, LeafIcon, ScaleIcon } from '../Icons';
+import { PencilIcon, PlusIcon, XIcon, BedIcon, DumbbellIcon, UtensilsIcon, CheckCircleIcon, SmokingIcon, UsersIcon, BookOpenIcon, ClipboardListIcon, LeafIcon, ScaleIcon, HeartIcon } from '../Icons';
 import ConfirmationModal from '../ConfirmationModal';
 import { JOURNAL_CONFIG } from '../../journals';
 
@@ -25,7 +25,8 @@ interface PlanScreenProps {
     onStartStopRokenChallenge: () => void;
     onStartSocialChallenge: () => void;
     onStartStressChallenge: () => void;
-    onStopChallenge: () => void;
+    onStartHartfalenChallenge: () => void;
+    onStopChallenge: () => Promise<void>;
     onStartJournal: (journalId: JournalId) => void;
     onStopJournal: () => void;
 }
@@ -37,9 +38,10 @@ const ALL_CHALLENGES: { id: ChallengeId, icon: React.ComponentType<{ className?:
     { id: 'stopRokenChallenge', icon: SmokingIcon, color: 'text-slate-500' },
     { id: 'socialChallenge', icon: UsersIcon, color: 'text-amber-500' },
     { id: 'stressChallenge', icon: LeafIcon, color: 'text-teal-500' },
+    { id: 'hartfalenChallenge', icon: HeartIcon, color: 'text-rose-500' },
 ];
 
-const PlanScreen: FC<PlanScreenProps> = ({ goals, challenge, activeJournal, measurements, onNavigate, onRemoveGoal, onStartSleepChallenge, onStartMovementChallenge, onStartVoedingChallenge, onStartStopRokenChallenge, onStartSocialChallenge, onStartStressChallenge, onStopChallenge, onStartJournal, onStopJournal }) => {
+const PlanScreen: FC<PlanScreenProps> = ({ goals, challenge, activeJournal, measurements, onNavigate, onRemoveGoal, onStartSleepChallenge, onStartMovementChallenge, onStartVoedingChallenge, onStartStopRokenChallenge, onStartSocialChallenge, onStartStressChallenge, onStartHartfalenChallenge, onStopChallenge, onStartJournal, onStopJournal }) => {
     const { t } = useLanguage();
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -102,6 +104,7 @@ const PlanScreen: FC<PlanScreenProps> = ({ goals, challenge, activeJournal, meas
         stopRokenChallenge: onStartStopRokenChallenge,
         socialChallenge: onStartSocialChallenge,
         stressChallenge: onStartStressChallenge,
+        hartfalenChallenge: onStartHartfalenChallenge,
     };
 
     const handleStartChallenge = (challengeId: ChallengeId) => {

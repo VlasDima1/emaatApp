@@ -10,9 +10,12 @@ export enum Domain {
   Ontspanning = "Ontspanning",
   Zingeving = "Zingeving",
   Financien = "Financiën",
+  Hartfalen = "Hartfalen",
 }
 
 export enum QuestionnaireType {
+  ZLM = "Ziektelast Meter (ZLM)",
+  CCQ = "Clinical COPD Questionnaire (CCQ)",
   FourDKL = "Vierdimensionale Klachtenlijst (4DKL)",
   PHQ9 = "Gezondheidsvragenlijst (PHQ-9)",
   GAD7 = "Generalized Anxiety Disorder-7 (GAD-7)",
@@ -61,6 +64,7 @@ export interface SleepDataDetails {
   didMoveToday: boolean;
   noScreenTime: boolean;
   relaxingActivity: boolean;
+  sleepQuality?: number; // 1-5 star rating from morning checkin
 }
 
 export interface MovementDataDetails {

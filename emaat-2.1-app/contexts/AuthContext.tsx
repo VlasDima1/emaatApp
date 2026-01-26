@@ -33,7 +33,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
-    register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+    register: (data: RegisterData) => Promise<{ success: boolean; error?: string; user?: User }>;
     logout: () => void;
 }
 
@@ -90,8 +90,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const register = async (data: RegisterData) => {
         const result = await apiService.register(data);
         
-        if (result.success) {
-            return { success: true };
+        if (result.success && result.data) {
+            // Auto-login after successful registration
+            // Validate that this is a patient account
+            if (result.data.user.role !== 'patient') {
+                apiService.logout();
+                return { success: false, error: 'Dit account is geen patiënt account.' };
+            }
+            // Set the token for future API calls
+            apiService.setToken(result.data.token);
+            setUser(result.data.user);
+            return { success: true, user: result.data.user };
         }
         
         return { success: false, error: result.error };

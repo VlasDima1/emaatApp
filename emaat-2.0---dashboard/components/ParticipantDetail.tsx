@@ -36,7 +36,8 @@ interface ChallengeButtonProps {
 
 const ChallengeButton: React.FC<ChallengeButtonProps> = ({ challenge, onClick }) => {
     const { icon: Icon, colorClass } = getDomainMeta(challenge.domain);
-    const isActive = challenge.status === 'active' || (challenge.progress > 0 && challenge.progress < 100);
+    const isStopped = challenge.status === 'stopped';
+    const isActive = challenge.status === 'active' || (!isStopped && challenge.progress > 0 && challenge.progress < 100 && challenge.status !== 'completed');
     const isCompleted = challenge.status === 'completed' || challenge.progress === 100;
 
     return (
@@ -251,16 +252,20 @@ const ParticipantDetail: React.FC = () => {
     );
   }
 
-  // Filter challenges by status - use status field if available, otherwise fall back to progress
-  const currentChallenges = participant.challenges.filter(c => 
-    c.status === 'active' || (c.progress > 0 && c.progress < 100 && c.status !== 'completed' && c.status !== 'stopped')
-  );
+  // Filter challenges by status - prioritize status field over progress-based logic
+  const currentChallenges = participant.challenges.filter(c => {
+    // A challenge is "current" only if explicitly active status
+    if (c.status === 'stopped' || c.status === 'completed' || c.status === 'new') return false;
+    return c.status === 'active' || (c.progress > 0 && c.progress < 100);
+  });
   const completedChallenges = participant.challenges.filter(c => 
-    c.status === 'completed' || c.progress === 100
+    c.status === 'completed' || (c.status !== 'stopped' && c.progress === 100)
   );
-  const newChallenges = participant.challenges.filter(c => 
-    (c.status === 'new' || c.status === 'stopped' || !c.status) && c.progress === 0 && c.status !== 'active'
-  );
+  const newChallenges = participant.challenges.filter(c => {
+    // Include stopped and new challenges (can be restarted)
+    if (c.status === 'stopped') return true;
+    return (c.status === 'new' || !c.status) && c.progress === 0;
+  });
 
   return (
     <div className="p-4 md:p-0 pb-24 md:pb-6 max-w-6xl mx-auto">
