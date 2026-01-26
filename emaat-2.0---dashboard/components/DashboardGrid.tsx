@@ -114,10 +114,15 @@ const StepsWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
     
     // Fallback to challenge data if no measurement data (mock mode)
     const moveChallenge = participant.challenges.find(c => c.domain === Domain.Beweeg);
-    const challengeData = moveChallenge ? moveChallenge.data.slice(0, 14).reverse().map((d) => ({
-        name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
-        val: d.value
-    })) : [];
+    const challengeData = moveChallenge 
+        ? [...moveChallenge.data]
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 14)
+            .map((d) => ({
+                name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
+                val: d.value
+            })) 
+        : [];
     
     // Use measurement data if available, otherwise fall back to challenge data
     const data = measurementData.length > 0 ? measurementData : challengeData;
@@ -175,10 +180,15 @@ const SleepWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
     
     // Fallback to challenge data if no measurement data (mock mode)
     const sleepChallenge = participant.challenges.find(c => c.domain === Domain.Slaap);
-    const challengeData = sleepChallenge ? sleepChallenge.data.slice(0, 14).reverse().map((d) => ({
-        name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
-        val: d.value
-    })) : [];
+    const challengeData = sleepChallenge 
+        ? [...sleepChallenge.data]
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 14)
+            .map((d) => ({
+                name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
+                val: d.value
+            })) 
+        : [];
     
     // Use measurement data if available, otherwise fall back to challenge data
     const data = measurementData.length > 0 ? measurementData : challengeData;

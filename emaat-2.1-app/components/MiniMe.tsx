@@ -25,6 +25,11 @@ const MiniMe: FC<MiniMeProps> = ({ name, avatar, level, points, communityGoal, l
   const communityProgressPercent = communityGoal ? Math.min(100, Math.round((communityGoal.currentProgress / communityGoal.target) * 100)) : 0;
   const adviceKey = communityGoal ? `communityGoal.advice.${communityGoal.type}` : 'communityGoal.advice.generic';
 
+  // Generate initials-based avatar URL as fallback
+  const getInitialsAvatarUrl = (userName: string) => {
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'U')}&background=3B82F6&color=fff&size=100`;
+  };
+
   const getBadgeColor = (tier: string) => {
     switch (tier) {
         case 'bronze': return 'text-orange-700 bg-orange-200 border-orange-300';
@@ -67,7 +72,7 @@ const MiniMe: FC<MiniMeProps> = ({ name, avatar, level, points, communityGoal, l
           <div className="flex-shrink-0 relative" onClick={(e) => { e.stopPropagation(); onShowDetails(); }}>
               <button className="block focus:outline-none focus:ring-4 focus:ring-brand-primary/50 rounded-full transition-transform transform hover:scale-105">
                   <img 
-                    src={avatar || `https://i.pravatar.cc/100`} 
+                    src={avatar || getInitialsAvatarUrl(name)} 
                     alt="eMaat" 
                     className="w-20 h-20 rounded-full border-4 border-white object-cover shadow-lg animate-heartbeat-gentle" 
                   />

@@ -10,7 +10,9 @@ interface SleepChartCardProps {
 const SleepChartCard: React.FC<SleepChartCardProps> = ({ data }) => {
   // Filter out days with no sleep data recorded
   const dataWithValues = data.filter(d => d.value > 0);
-  const chartData = data.map(d => ({ name: d.date.substring(5).replace('-', '/'), value: d.value || 0 }));
+  // Sort data chronologically (oldest first, newest last) and format for chart
+  const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const chartData = sortedData.map(d => ({ name: d.date.substring(5).replace('-', '/'), value: d.value || 0 }));
   const chartColor = '#6366f1'; // Indigo for sleep
 
   // Calculate statistics only from days with data

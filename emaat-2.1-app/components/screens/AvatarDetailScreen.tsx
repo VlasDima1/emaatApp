@@ -46,6 +46,11 @@ const AvatarDetailScreen: FC<AvatarDetailScreenProps> = ({ avatar, userInfo, lev
     const [heightCm, setHeightCm] = useState('');
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
+    // Generate initials-based avatar URL as fallback
+    const getInitialsAvatarUrl = (userName: string) => {
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'U')}&background=3B82F6&color=fff&size=128`;
+    };
+
     useEffect(() => {
         setEditedInfo(userInfo);
         if (userInfo.height) {
@@ -138,7 +143,7 @@ const AvatarDetailScreen: FC<AvatarDetailScreenProps> = ({ avatar, userInfo, lev
             </header>
             <div className="mt-4 max-w-md mx-auto">
                 <div className="text-center">
-                    <img src={avatar || ''} alt={t('miniMe.title')} className="w-32 h-32 rounded-full border-8 border-white object-cover shadow-2xl mx-auto mb-4" />
+                    <img src={avatar || getInitialsAvatarUrl(userInfo.name)} alt={t('miniMe.title')} className="w-32 h-32 rounded-full border-8 border-white object-cover shadow-2xl mx-auto mb-4" />
                 </div>
                 <div className="mt-4 space-y-3 bg-white p-4 rounded-lg shadow-sm">
                     <div>

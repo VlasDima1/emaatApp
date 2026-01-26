@@ -6,6 +6,21 @@
 import { apiService } from './apiService';
 import { Measurement, LifeStep, Goals, ChallengeId, SurveyResult, JournalEntry, Reminder, Survey } from '../types';
 import { SURVEYS } from '../surveys';
+import { translations } from '../translations';
+
+/**
+ * Dutch translation function for syncing data
+ * Always uses Dutch regardless of user's language preference
+ * This ensures the dashboard always receives Dutch text
+ */
+const tDutch = (key: string): string => {
+    const keys = key.split('.');
+    let translation = keys.reduce((acc: any, currentKey) => acc?.[currentKey], translations['nl']);
+    if (translation === undefined) {
+        translation = keys.reduce((acc: any, currentKey) => acc?.[currentKey], translations['en']);
+    }
+    return translation !== undefined ? String(translation) : key;
+};
 
 interface SyncResult {
     success: boolean;
@@ -190,8 +205,9 @@ class SyncService {
 
     /**
      * Sync a survey result to the backend
+     * Always uses Dutch translations for dashboard consistency
      */
-    async syncSurveyResult(survey: SurveyResult, t?: (key: string) => string): Promise<boolean> {
+    async syncSurveyResult(survey: SurveyResult, _t?: (key: string) => string): Promise<boolean> {
         if (!this.isReadyToSync()) {
             console.log('Sync skipped: Not authenticated');
             return false;
@@ -202,12 +218,13 @@ class SyncService {
             const surveyDef = SURVEYS.find(s => s.id === survey.surveyId);
             
             // Transform answers to include question text and answer labels
+            // Always use Dutch translations for dashboard consistency
             let enrichedAnswers: Array<{ questionId: string; questionText: string; answerLabel: string; value: number }> = [];
             
-            if (surveyDef && t) {
+            if (surveyDef) {
                 enrichedAnswers = Object.entries(survey.answers).map(([questionId, answerTextKey]) => {
                     const question = surveyDef.questions.find(q => q.id === questionId);
-                    const questionText = question ? t(question.textKey) : questionId;
+                    const questionText = question ? tDutch(question.textKey) : questionId;
                     
                     // Find the answer option to get the value and label
                     let answerLabel = answerTextKey;
@@ -218,7 +235,7 @@ class SyncService {
                             (opt: any) => opt.textKey === answerTextKey
                         );
                         if (answerOption) {
-                            answerLabel = t(answerOption.textKey);
+                            answerLabel = tDutch(answerOption.textKey);
                             value = answerOption.value;
                         }
                     }
