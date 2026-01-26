@@ -336,6 +336,7 @@ const getQuestionnaireMeta = (type: QuestionnaireType): { description: string; m
     switch (type) {
         case QuestionnaireType.ZLM: return { description: "Gecombineerde vragenlijst over ziektelast en kwaliteit van leven.", maxScore: 108 };
         case QuestionnaireType.CCQ: return { description: "Meet de dagelijkse symptomen en beperkingen bij COPD.", maxScore: 6 };
+        case QuestionnaireType.AlgemeenHartfalen: return { description: "Algemene vragenlijst over welzijn en hartfalen symptomen.", maxScore: 82 }; // 11 general (66) + 6 HF weekly (36) + 3 HF 3-month (12) = 114 max, but practical range ~82
         case QuestionnaireType.FourDKL: return { description: "Meet distress, depressie, angst en somatisatie.", maxScore: 50 }; // Note: 50 items total, scoring is per scale
         case QuestionnaireType.PHQ9: return { description: "Screent op symptomen van depressie.", maxScore: 27 };
         case QuestionnaireType.GAD7: return { description: "Screent op symptomen van angst.", maxScore: 21 };
@@ -1084,6 +1085,7 @@ function mapSurveyTypeToQuestionnaire(type: string): QuestionnaireType {
     const map: Record<string, QuestionnaireType> = {
         'zlm': QuestionnaireType.ZLM,
         'ccq': QuestionnaireType.CCQ,
+        'algemeenHartfalen': QuestionnaireType.AlgemeenHartfalen,
         'fourDKL': QuestionnaireType.FourDKL,
         '4dkl': QuestionnaireType.FourDKL,
         'phq9': QuestionnaireType.PHQ9,

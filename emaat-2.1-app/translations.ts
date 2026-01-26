@@ -13,6 +13,7 @@ import { mmrcTranslations } from './surveys/mmrc/translations';
 import { pam13Translations } from './surveys/pam13/translations';
 import { ccqTranslations } from './surveys/ccq/translations';
 import { zlmTranslations } from './surveys/zlm/translations';
+import { algemeenHartfalenTranslations } from './surveys/algemeenHartfalen/translations';
 import { sleepChallengeTranslations } from './challenges/sleepChallenge/translations';
 import { beweegChallengeTranslations } from './challenges/beweegChallenge/translations';
 import { voedingChallengeTranslations } from './challenges/voedingChallenge/translations';
@@ -33,7 +34,7 @@ type TranslationModule = Partial<Record<Language, object>>;
 // Define all modules in one place for easy maintenance and scalability.
 const surveyModules: TranslationModule[] = [
   fourDKLTranslations, phq9Translations, gad7Translations, auditTranslations, catTranslations,
-  vasPainTranslations, gfiTranslations, hadsTranslations, fagerstromTranslations, mmrcTranslations, pam13Translations, ccqTranslations, zlmTranslations
+  vasPainTranslations, gfiTranslations, hadsTranslations, fagerstromTranslations, mmrcTranslations, pam13Translations, ccqTranslations, zlmTranslations, algemeenHartfalenTranslations
 ];
 
 const challengeModules: TranslationModule[] = [

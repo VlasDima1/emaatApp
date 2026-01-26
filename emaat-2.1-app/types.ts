@@ -220,7 +220,7 @@ export interface BMICardInfo {
 }
 
 // --- Surveys ---
-export type SurveyId = 'fourDKL' | 'phq9' | 'gad7' | 'audit' | 'cat' | 'vasPain' | 'gfi' | 'hads' | 'fagerstrom' | 'mmrc' | 'pam13' | 'ccq' | 'zlm';
+export type SurveyId = 'fourDKL' | 'phq9' | 'gad7' | 'audit' | 'cat' | 'vasPain' | 'gfi' | 'hads' | 'fagerstrom' | 'mmrc' | 'pam13' | 'ccq' | 'zlm' | 'algemeenHartfalen';
 export type FourDKLDimension = 'distress' | 'depression' | 'anxiety' | 'somatization';
 export type SurveyScores = Record<string, number>;
 export type SurveyInterpretationLevel = 'low' | 'moderate' | 'high';

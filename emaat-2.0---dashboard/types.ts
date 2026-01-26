@@ -16,6 +16,7 @@ export enum Domain {
 export enum QuestionnaireType {
   ZLM = "Ziektelast Meter (ZLM)",
   CCQ = "Clinical COPD Questionnaire (CCQ)",
+  AlgemeenHartfalen = "Algemene Vragenlijst (Hartfalen)",
   FourDKL = "Vierdimensionale Klachtenlijst (4DKL)",
   PHQ9 = "Gezondheidsvragenlijst (PHQ-9)",
   GAD7 = "Generalized Anxiety Disorder-7 (GAD-7)",

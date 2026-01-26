@@ -13,11 +13,13 @@ import { mmrcSurvey } from './mmrc/index';
 import { pam13Survey } from './pam13/index';
 import { ccqSurvey } from './ccq/index';
 import { zlmSurvey } from './zlm/index';
+import { algemeenHartfalenSurvey } from './algemeenHartfalen/index';
 
 
 export const SURVEYS: Survey[] = [
     zlmSurvey,
     ccqSurvey,
+    algemeenHartfalenSurvey,
     fourDKLSurvey,
     phq9Survey,
     gad7Survey,
