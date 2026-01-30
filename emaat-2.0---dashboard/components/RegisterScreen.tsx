@@ -31,7 +31,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin, onRegi
         setIsLoading(true);
 
         try {
-            const API_URL = 'http://localhost:3001/api';
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
             const response = await fetch(`${API_URL}/auth/register`, {
                 method: 'POST',
                 headers: {

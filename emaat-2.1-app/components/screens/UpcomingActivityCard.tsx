@@ -39,8 +39,8 @@ const Countdown: FC<{ to: Date }> = ({ to }) => {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     if (days > 0) return <span className="font-mono text-lg">{t('mainScreen.countdownDays', { d: days, h: hours })}</span>
-    if (hours > 0) return <span className="font-mono text-lg">{t('mainScreen.countdownHours', { h: hours, m: minutes })}</span>
-    return <span className="font-mono text-lg">{t('mainScreen.countdownMinutes', { m: minutes, s: seconds })}</span>
+    // Always show hours and minutes format, never seconds
+    return <span className="font-mono text-lg">{t('mainScreen.countdownHours', { h: hours, m: minutes })}</span>
 }
 
 const UpcomingActivityCard: FC<UpcomingActivityCardProps> = ({ item, onLogFromReminder, onSelectChallengeActivity }) => {

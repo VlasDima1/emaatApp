@@ -320,7 +320,7 @@ const generateVitalityMeasurements = (count: number): VitalityMeasurement[] => {
     measurements.push({
       id: `vit-${i}`,
       date: date.toISOString().split('T')[0],
-      time: `${Math.floor(Math.random() * 12 + 8).toString().padStart(2, '0')}-${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
+      time: `${Math.floor(Math.random() * 12 + 8).toString().padStart(2, '0')}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
       weight: parseFloat(weight.toFixed(1)),
       bloodPressureSystolic: Math.round(systolic),
       bloodPressureDiastolic: Math.round(diastolic),

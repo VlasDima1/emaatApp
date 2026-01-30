@@ -6,9 +6,10 @@ import { PlusIcon, HomeIcon, ClipboardListIcon, CalendarIcon, ChartBarIcon, Sett
 
 interface TimelineWelcomeProps {
     onStartSleepChallenge: () => void;
+    hasChallengeActive?: boolean;
 }
 
-const TimelineWelcome: FC<TimelineWelcomeProps> = ({ onStartSleepChallenge }) => {
+const TimelineWelcome: FC<TimelineWelcomeProps> = ({ onStartSleepChallenge, hasChallengeActive }) => {
     const { t } = useLanguage();
 
     return (
@@ -41,17 +42,19 @@ const TimelineWelcome: FC<TimelineWelcomeProps> = ({ onStartSleepChallenge }) =>
                 </div>
             </div>
 
-            <div className="pt-6 border-t text-center bg-indigo-50 p-4 rounded-lg border border-indigo-200">
-                <BedIcon className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
-                <h4 className="font-semibold text-lg text-indigo-800 mb-2">{t('timelineWelcome.startChallengeTitle')}</h4>
-                <p className="text-sm text-indigo-700 mb-4">{t('timelineWelcome.startSleepChallengeInstruction')}</p>
-                <button 
-                    onClick={onStartSleepChallenge}
-                    className="w-full max-w-xs mx-auto py-3 px-4 bg-brand-primary text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-md"
-                >
-                    {t('timelineWelcome.startSleepChallengeButton')}
-                </button>
-            </div>
+            {!hasChallengeActive && (
+                <div className="pt-6 border-t text-center bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                    <BedIcon className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
+                    <h4 className="font-semibold text-lg text-indigo-800 mb-2">{t('timelineWelcome.startChallengeTitle')}</h4>
+                    <p className="text-sm text-indigo-700 mb-4">{t('timelineWelcome.startSleepChallengeInstruction')}</p>
+                    <button 
+                        onClick={onStartSleepChallenge}
+                        className="w-full max-w-xs mx-auto py-3 px-4 bg-brand-primary text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-md"
+                    >
+                        {t('timelineWelcome.startSleepChallengeButton')}
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

@@ -491,7 +491,7 @@ const MainScreen: FC<MainScreenProps> = ({ userInfo, avatar, level, points, goal
                     {!hasLoggedLifeSteps ? (
                          <>
                             {initialBMI && <ul className="space-y-3 mb-4"><BMICard info={initialBMI} gender={userInfo.gender} /></ul>}
-                            <TimelineWelcome onStartSleepChallenge={onStartSleepChallenge} />
+                            <TimelineWelcome onStartSleepChallenge={onStartSleepChallenge} hasChallengeActive={!!challenge} />
                          </>
                     ) : (
                         <ul className="space-y-3">

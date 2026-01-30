@@ -3,7 +3,7 @@ import React from 'react';
 import { Domain } from '../types';
 import {
     SleepIcon, MovementIcon, NutritionIcon, StressIcon,
-    SocialIcon, StopSmokingIcon, AlcoholIcon, RelaxationIcon, PurposeIcon, FinancesIcon
+    SocialIcon, StopSmokingIcon, AlcoholIcon, RelaxationIcon, PurposeIcon, FinancesIcon, HeartIcon
 } from '../components/icons';
 
 export interface DomainMeta {
@@ -24,6 +24,7 @@ export const DOMAIN_META: Record<Domain, DomainMeta> = {
     [Domain.Ontspanning]: { colorHex: '#14b8a6', colorClass: 'bg-teal-500', icon: RelaxationIcon, unit: 'score' },
     [Domain.Zingeving]: { colorHex: '#f43f5e', colorClass: 'bg-rose-500', icon: PurposeIcon, unit: 'score' },
     [Domain.Financien]: { colorHex: '#06b6d4', colorClass: 'bg-cyan-500', icon: FinancesIcon, unit: 'score' },
+    [Domain.Hartfalen]: { colorHex: '#dc2626', colorClass: 'bg-red-600', icon: HeartIcon, unit: 'score' },
 };
 
 export const getDomainMeta = (domain: Domain): DomainMeta => {

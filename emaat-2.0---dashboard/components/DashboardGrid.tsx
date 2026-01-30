@@ -45,15 +45,74 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, unit, icon, color
 
 // --- Widgets ---
 
+// Helper to parse date string robustly (handles YYYY-MM-DD, DD-MM-YYYY, etc.)
+const parseDate = (dateStr: string): Date => {
+    // Try ISO format first (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr);
+    }
+    // Try DD-MM-YYYY or DD/MM/YYYY
+    const dmyMatch = dateStr.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+    if (dmyMatch) {
+        return new Date(`${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`);
+    }
+    // Fallback
+    return new Date(dateStr);
+};
+
+const formatDateLabel = (dateStr: string): string => {
+    const date = parseDate(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}`;
+};
+
+// Custom tooltip for weight chart
+interface WeightDataPoint {
+    index: number;
+    displayLabel: string;
+    fullDateTime: string;
+    gewicht: number;
+}
+
+const WeightTooltip: React.FC<{ active?: boolean; payload?: Array<{ payload: WeightDataPoint }> }> = ({ active, payload }) => {
+    if (active && payload && payload.length > 0) {
+        const dataPoint = payload[0].payload;
+        return (
+            <div style={{ 
+                backgroundColor: 'white', 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                border: 'none'
+            }}>
+                <p style={{ margin: 0, color: '#6b7280', fontSize: '12px' }}>Datum: {dataPoint.fullDateTime}</p>
+                <p style={{ margin: '4px 0 0 0', color: '#0d9488', fontWeight: 'bold' }}>Gewicht: {dataPoint.gewicht} kg</p>
+            </div>
+        );
+    }
+    return null;
+};
+
 // 1. Weight Widget
 const WeightWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measurements }) => {
-    const data = measurements
+    const data: WeightDataPoint[] = measurements
         .filter(m => m.weight !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
-        .map(m => ({
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)}`,
-            fullDate: m.date,
-            val: m.weight
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            // If same date, sort by time
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
+        .map((m, index) => ({
+            index,
+            displayLabel: formatDateLabel(m.date),
+            fullDateTime: `${formatDateLabel(m.date)} ${m.time || ''}`.trim(),
+            gewicht: m.weight!
         }));
 
     const latest = data[data.length - 1];
@@ -61,7 +120,7 @@ const WeightWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measu
     return (
         <MetricCard 
             title="Gewicht" 
-            value={latest?.val || '-'} 
+            value={latest?.gewicht || '-'} 
             unit="kg" 
             icon={<ScaleIcon />}
             colorClass="bg-teal-600"
@@ -70,11 +129,16 @@ const WeightWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measu
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis 
-                        dataKey="name" 
+                        dataKey="index"
+                        type="number"
+                        domain={[0, data.length - 1]}
                         tick={{fontSize: 10, fill: '#9ca3af'}} 
                         axisLine={false} 
                         tickLine={false} 
                         dy={10}
+                        tickFormatter={(val: number) => data[val]?.displayLabel || ''}
+                        interval={0}
+                        ticks={data.length <= 10 ? data.map((_, i) => i) : undefined}
                     />
                     <YAxis 
                         domain={['dataMin - 1', 'dataMax + 1']} 
@@ -83,17 +147,18 @@ const WeightWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measu
                         tickLine={false} 
                     />
                     <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        itemStyle={{ color: '#0d9488', fontWeight: 'bold' }}
+                        content={<WeightTooltip />}
                         cursor={{ stroke: '#ccfbf1', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="val" 
+                        dataKey="gewicht" 
+                        name="Gewicht"
                         stroke="#0d9488" 
                         strokeWidth={3} 
                         dot={{ r: 3, fill: '#0d9488' }}
-                        activeDot={{ r: 6, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }} 
+                        activeDot={{ r: 6, fill: '#0d9488', stroke: '#fff', strokeWidth: 2 }}
+                        isAnimationActive={false}
                     />
                 </LineChart>
             </ResponsiveContainer>
@@ -106,21 +171,28 @@ const StepsWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
     // First try to get data from vitalityMeasurements (API data)
     const measurementData = participant.vitalityMeasurements
         .filter(m => m.steps !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
         .map(m => ({
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)}`,
-            val: m.steps
+            name: formatDateLabel(m.date),
+            stappen: m.steps
         }));
     
     // Fallback to challenge data if no measurement data (mock mode)
     const moveChallenge = participant.challenges.find(c => c.domain === Domain.Beweeg);
     const challengeData = moveChallenge 
         ? [...moveChallenge.data]
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime())
             .slice(0, 14)
             .map((d) => ({
-                name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
-                val: d.value
+                name: formatDateLabel(d.date),
+                stappen: d.value
             })) 
         : [];
     
@@ -128,12 +200,12 @@ const StepsWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
     const data = measurementData.length > 0 ? measurementData : challengeData;
     
     // Calculate average or latest based on need, using latest here
-    const latest = data.length > 0 ? data[data.length - 1].val : '-';
+    const latest = data.length > 0 ? data[data.length - 1].stappen : '-';
 
     return (
         <MetricCard 
             title="Stappen" 
-            value={latest.toLocaleString()} 
+            value={typeof latest === 'number' ? latest.toLocaleString() : latest} 
             unit="stappen" 
             icon={<ShoeIcon />}
             colorClass="bg-blue-500"
@@ -157,9 +229,10 @@ const StepsWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
                     <Tooltip 
                         cursor={{fill: '#eff6ff'}}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        itemStyle={{ color: '#3b82f6', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value.toLocaleString()} stappen`, 'Stappen']}
+                        labelFormatter={(label) => `Datum: ${label}`}
                     />
-                    <Bar dataKey="val" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="stappen" name="Stappen" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     <ReferenceLine y={6000} stroke="#cbd5e1" strokeDasharray="3 3" />
                 </BarChart>
             </ResponsiveContainer>
@@ -172,28 +245,35 @@ const SleepWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
     // First try to get data from vitalityMeasurements (API data)
     const measurementData = participant.vitalityMeasurements
         .filter(m => m.sleepHours !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
         .map(m => ({
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)}`,
-            val: Number(m.sleepHours!.toFixed(1))
+            name: formatDateLabel(m.date),
+            slaap: Number(m.sleepHours!.toFixed(1))
         }));
     
     // Fallback to challenge data if no measurement data (mock mode)
     const sleepChallenge = participant.challenges.find(c => c.domain === Domain.Slaap);
     const challengeData = sleepChallenge 
         ? [...sleepChallenge.data]
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime())
             .slice(0, 14)
             .map((d) => ({
-                name: `${d.date.substring(8)}/${d.date.substring(5, 7)}`,
-                val: d.value
+                name: formatDateLabel(d.date),
+                slaap: d.value
             })) 
         : [];
     
     // Use measurement data if available, otherwise fall back to challenge data
     const data = measurementData.length > 0 ? measurementData : challengeData;
 
-    const latest = data.length > 0 ? data[data.length - 1].val : '-';
+    const latest = data.length > 0 ? data[data.length - 1].slaap : '-';
 
     return (
         <MetricCard 
@@ -222,12 +302,14 @@ const SleepWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
                     />
                     <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        itemStyle={{ color: '#6366f1', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} uur`, 'Slaap']}
+                        labelFormatter={(label) => `Datum: ${label}`}
                         cursor={{ stroke: '#e0e7ff', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="val" 
+                        dataKey="slaap" 
+                        name="Slaap"
                         stroke="#6366f1" 
                         strokeWidth={3} 
                         dot={{r: 3, fill: '#6366f1'}}
@@ -243,11 +325,18 @@ const SleepWidget: React.FC<{ participant: Participant }> = ({ participant }) =>
 const BloodPressureWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measurements }) => {
     const data = measurements
         .filter(m => m.bloodPressureSystolic !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
         .map(m => ({
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)}`,
-            sys: m.bloodPressureSystolic,
-            dia: m.bloodPressureDiastolic
+            name: formatDateLabel(m.date),
+            bovendruk: m.bloodPressureSystolic,
+            onderdruk: m.bloodPressureDiastolic
         }));
 
     const latest = data[data.length - 1];
@@ -255,7 +344,7 @@ const BloodPressureWidget: React.FC<{ measurements: VitalityMeasurement[] }> = (
     return (
         <MetricCard 
             title="Bloeddruk" 
-            value={latest ? `${latest.sys}/${latest.dia}` : '-'} 
+            value={latest ? `${latest.bovendruk}/${latest.onderdruk}` : '-'} 
             unit="mmHg" 
             icon={<ActivityIcon />}
             colorClass="bg-red-500"
@@ -278,9 +367,11 @@ const BloodPressureWidget: React.FC<{ measurements: VitalityMeasurement[] }> = (
                     />
                      <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        formatter={(value: number, name: string) => [`${value} mmHg`, name === 'bovendruk' ? 'Bovendruk' : 'Onderdruk']}
+                        labelFormatter={(label) => `Datum: ${label}`}
                     />
-                    <Line type="monotone" dataKey="sys" stroke="#ef4444" strokeWidth={2} dot={{r:3}} activeDot={{r:5}} />
-                    <Line type="monotone" dataKey="dia" stroke="#fca5a5" strokeWidth={2} dot={{r:3}} activeDot={{r:5}} />
+                    <Line type="monotone" dataKey="bovendruk" name="Bovendruk" stroke="#ef4444" strokeWidth={2} dot={{r:3}} activeDot={{r:5}} />
+                    <Line type="monotone" dataKey="onderdruk" name="Onderdruk" stroke="#fca5a5" strokeWidth={2} dot={{r:3}} activeDot={{r:5}} />
                 </LineChart>
             </ResponsiveContainer>
         </MetricCard>
@@ -291,12 +382,19 @@ const BloodPressureWidget: React.FC<{ measurements: VitalityMeasurement[] }> = (
 const BloodSugarWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measurements }) => {
     const data = measurements
         .filter(m => m.bloodSugar !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
         .map(m => ({
             // Include time for distinct moments
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)} ${m.time}`,
+            name: `${formatDateLabel(m.date)} ${m.time}`,
             displayTime: m.time,
-            val: m.bloodSugar
+            bloedsuiker: m.bloodSugar
         }));
 
     const latest = data[data.length - 1];
@@ -304,7 +402,7 @@ const BloodSugarWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ m
     return (
         <MetricCard 
             title="Bloedsuiker" 
-            value={latest?.val || '-'} 
+            value={latest?.bloedsuiker || '-'} 
             unit="mmol/L" 
             icon={<DropIcon />}
             colorClass="bg-purple-600"
@@ -329,12 +427,14 @@ const BloodSugarWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ m
                     />
                     <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        itemStyle={{ color: '#9333ea', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} mmol/L`, 'Bloedsuiker']}
+                        labelFormatter={(label) => `Datum: ${label}`}
                         cursor={{ stroke: '#f3e8ff', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="val" 
+                        dataKey="bloedsuiker" 
+                        name="Bloedsuiker"
                         stroke="#9333ea" 
                         strokeWidth={3} 
                         dot={{ r: 3, fill: '#9333ea' }}
@@ -350,10 +450,17 @@ const BloodSugarWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ m
 const HeartRateWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ measurements }) => {
     const data = measurements
         .filter(m => m.heartRate !== undefined)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
+        .sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA.getTime() - dateB.getTime();
+            }
+            return (a.time || '00:00').localeCompare(b.time || '00:00');
+        })
         .map(m => ({
-            name: `${m.date.substring(8)}/${m.date.substring(5, 7)} ${m.time}`,
-            val: m.heartRate
+            name: `${formatDateLabel(m.date)} ${m.time}`,
+            hartslag: m.heartRate
         }));
 
     const latest = data[data.length - 1];
@@ -361,7 +468,7 @@ const HeartRateWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ me
     return (
         <MetricCard 
             title="Hartslag" 
-            value={latest?.val || '-'} 
+            value={latest?.hartslag || '-'} 
             unit="BPM" 
             icon={<HeartIcon />}
             colorClass="bg-rose-500"
@@ -385,12 +492,14 @@ const HeartRateWidget: React.FC<{ measurements: VitalityMeasurement[] }> = ({ me
                     />
                     <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        itemStyle={{ color: '#f43f5e', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} BPM`, 'Hartslag']}
+                        labelFormatter={(label) => `Datum: ${label}`}
                         cursor={{ stroke: '#ffe4e6', strokeWidth: 2 }}
                     />
                     <Line 
                         type="monotone" 
-                        dataKey="val" 
+                        dataKey="hartslag" 
+                        name="Hartslag"
                         stroke="#f43f5e" 
                         strokeWidth={3} 
                         dot={{ r: 3, fill: '#f43f5e' }}
