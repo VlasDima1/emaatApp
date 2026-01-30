@@ -42,7 +42,7 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: emaat-api-uat-12345            # 👈 App Service name
-          package: backend
+          package: emaat-backend
 
   # -------------------------
   # Static Web App 1
