@@ -59,7 +59,7 @@ jobs:
       - name: Build & Deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.SWA_APP_1_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DASHBOARD_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: emaat-2.0---dashboard
@@ -82,7 +82,7 @@ jobs:
       - name: Build & Deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.SWA_APP_2_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.SWA_APP_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: emaat-2.1-app
