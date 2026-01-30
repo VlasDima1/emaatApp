@@ -41,7 +41,7 @@ jobs:
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: emaat-api-uat            # 👈 App Service name
+          app-name: emaat-api-uat-12345            # 👈 App Service name
           package: backend
 
   # -------------------------
@@ -65,7 +65,7 @@ jobs:
           app_location: emaat-2.0---dashboard
           output_location: dist
         env:
-          VITE_API_URL: https://emaat-api-uat.azurewebsites.net
+          VITE_API_URL: https://emaat-api-uat-12345.azurewebsites.net
 
   # -------------------------
   # Static Web App 2
@@ -88,4 +88,4 @@ jobs:
           app_location: emaat-2.1-app
           output_location: dist
         env:
-          VITE_API_URL: https://emaat-api-uat.azurewebsites.net
+          VITE_API_URL: https://emaat-api-uat-12345.azurewebsites.net
